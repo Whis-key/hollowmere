@@ -95,7 +95,26 @@ jobs:
         run: |
           APK=$(find android/app/build/outputs/apk/release -name '*.apk' | head -1)
           cp "$APK" hollowmere.apk
+          # Quoted heredoc: the shell leaves the backticks alone, and Actions
+          # has already substituted the ${{ }} expressions by the time it runs.
+          cat > notes.md <<'EOF'
+          Signed release build of the Android shell.
+
+          **Installing.** Install it straight over the app already on the phone.
+          The signature matches, so it updates in place and your saves are kept.
+
+          **This is not how you update the game.** The APK is only a shell; the
+          game itself is loaded from GitHub Pages at runtime. To pick up game
+          changes, open the app and use **Town -> App version -> Check ->
+          Update**. A new APK is only needed when something under `android/`
+          changes -- the WebView config, the manifest, the icon.
+
+          ---
+
+          versionCode `${{ github.run_number }}`, built from commit
+          `${{ github.sha }}`.
+          EOF
           gh release delete android-latest --yes --cleanup-tag || true
           gh release create android-latest hollowmere.apk \
             --title "Hollowmere APK" \
-            --notes "Signed release build, versionCode ${{ github.run_number }}, from ${{ github.sha }}. Installs over the previous version and keeps your saves. The game is loaded from GitHub Pages at runtime, so this APK only needs rebuilding when the Android shell changes, not when the game changes."
+            --notes-file notes.md

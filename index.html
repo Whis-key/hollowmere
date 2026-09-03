@@ -197,7 +197,7 @@
 </div></div>
 
 <script>
-const APP_VERSION='5.4';   /* bumped every release; the updater reads this string */
+const APP_VERSION='5.5';   /* bumped every release; the updater reads this string */
 
 /* ------------------------------------------------------------------
    Self-updating. The service worker serves the page network-first, so a
@@ -763,6 +763,29 @@ function listOffer(id,n){
   take(id,n);unequipIfGone(id);
   S.offers.push({kind:'sell',id,qty:n,filled:0,price:marketPrice(id)});
   toast(`Listed ${fmt(n)}× ${item(id).n}`);
+}
+function buyOffer(id,n){
+  if((S.offers||[]).length>=GE_SLOTS){toast('No free offer slots');return;}
+  // A buy offer delivers through add() whenever it fills, which could be hours
+  // later. Refuse it now rather than have the gold spent and the goods dropped
+  // on arrival because there was no slot waiting.
+  if(!hasSlot(id)){toast(`No free bank slot for ${item(id).n}`);return;}
+  const price=marketPrice(id);
+  n=Math.min(n,Math.floor(S.gp/price));
+  if(n<1){toast('Not enough gold');return;}
+  S.gp-=price*n;
+  S.offers.push({kind:'buy',id,qty:n,filled:0,price});
+  toast(`Buying ${fmt(n)}× ${item(id).n}`);
+}
+function shopBuy(id,n){
+  const st=STOCK.find(x=>x.id===id);if(!st)return;
+  const c=CROPS.find(x=>x.seed===id);
+  if(c&&lvl('farming')<c.lvl){toast(`Farming ${c.lvl} required`);return;}
+  if(!hasSlot(id)){toast('No free bank slot');return;}
+  n=Math.min(n,Math.floor(S.gp/st.cost));
+  if(n<1){toast('Not enough gold');return;}
+  S.gp-=st.cost*n;add(id,n);
+  toast(`Bought ${fmt(n)}× ${item(id).n}`);
 }
 function canPay(inp){if(!inp)return true;for(const k in inp)if(have(k)<inp[k])return false;return true;}
 
@@ -1398,6 +1421,23 @@ function viewQuests(){
   return h;
 }
 
+/* One quantity strip, shared by the bank, the exchange and the shop. `max` is
+   whatever bounds the choice: stock held when selling, gold affordable when
+   buying. Buttons rather than a number input, to match the rest of the app. */
+function pickStrip(id,mode,unit,max,note){
+  if(!(pick&&pick.id===id&&pick.mode===mode))return '';
+  const label={sell:'Vendor',list:'List',order:'Buy',shop:'Buy'}[mode];
+  const cancel=`<button class="mini" data-pickcancel="1">Cancel</button>`;
+  if(max<1)return `<div class="row"><div class="grow"><b>${label} how many?</b>
+    <span>${note}</span></div>${cancel}</div>`;
+  const opts=[1,10,100,1000,10000].filter(q=>q<max);opts.push(max);
+  const allLabel=(mode==='sell'||mode==='list')?`All ${fmt(max)}`:`Max ${fmt(max)}`;
+  return `<div class="row"><div class="grow"><b>${label} how many?</b>
+    <span>${fmt(unit)} gp each &middot; ${note}</span></div></div>
+    <div class="row">${opts.map(q=>`<button class="mini buy" data-pickqty="${q}">${q===max?allLabel:fmt(q)}</button>`).join('')}
+    ${cancel}</div>`;
+}
+
 function viewBank(){
   const used=bankUsed(),cap=bankCap(),pctc=(used/cap)*100;
   const capbar=`<div class="cap"><i class="${pctc>=100?'full':pctc>80?'warn':''}" style="width:${Math.min(100,pctc)}%"></i></div>`;
@@ -1422,14 +1462,8 @@ function viewBank(){
       <button class="mini${pick&&pick.id===k&&pick.mode==='sell'?' on':''}" data-pick="sell:${k}">Vendor</button></div>`;
     // Quantity strip. No number inputs anywhere else in this app, so it stays
     // buttons: the round numbers you actually own, then All.
-    if(pick&&pick.id===k){
-      const unit=pick.mode==='sell'?Math.floor(it.v*0.7):marketPrice(k);
-      const opts=[1,10,100,1000,10000].filter(q=>q<n);opts.push(n);
-      h+=`<div class="row"><div class="grow"><b>${pick.mode==='sell'?'Vendor':'List'} how many?</b>
-        <span>${fmt(unit)} gp each &middot; ${fmt(n)} held</span></div></div>
-        <div class="row">${opts.map(q=>`<button class="mini buy" data-pickqty="${q}">${q===n?`All ${fmt(n)}`:fmt(q)}</button>`).join('')}
-        <button class="mini" data-pickcancel="1">Cancel</button></div>`;
-    }
+    h+=pickStrip(k,'sell',Math.floor(it.v*0.7),n,`${fmt(n)} held`);
+    h+=pickStrip(k,'list',marketPrice(k),n,`${fmt(n)} held`);
   }
   return h;
 }
@@ -1473,7 +1507,8 @@ function viewShop(){
     const diff=Math.round(((mkt-base)/base)*100);
     h+=`<div class="row"><div class="grow"><b>${item(id).n}</b>
       <span>${fmt(mkt)} gp &middot; <span class="${diff<=0?'up':'down'}">${diff>0?'+':''}${diff}% vs base</span> &middot; you hold ${fmt(have(id))}</span></div>
-      <button class="mini buy" data-order="${id}" ${(S.gp<mkt*100||(S.offers||[]).length>=GE_SLOTS)?'disabled':''}>Buy 100</button></div>`;
+      <button class="mini buy${pick&&pick.id===id&&pick.mode==='order'?' on':''}" data-pick="order:${id}" ${(S.gp<mkt||(S.offers||[]).length>=GE_SLOTS)?'disabled':''}>Buy</button></div>`;
+    h+=pickStrip(id,'order',mkt,Math.floor(S.gp/mkt),`you can afford ${fmt(Math.floor(S.gp/mkt))}`);
   }
   h+=`<h2>Your house</h2>`;
   h+=`<div class="row"><div class="grow"><b>Passive bonuses</b>
@@ -1507,8 +1542,8 @@ function viewShop(){
     const locked=c&&lvl('farming')<c.lvl;
     h+=`<div class="row"><div class="grow"><b>${item(it.id).n}</b>
       <span>${locked?`Farming ${c.lvl} required`:c?`Grows in ${Math.round(c.ms/60000)} min · ${c.harv} xp each`:'For mixing potions'} &middot; you have ${have(it.id)}</span></div>
-      <button class="mini buy" data-shop="${it.id}" ${(S.gp<it.cost||locked)?'disabled':''}>${fmt(it.cost)} gp</button>
-      <button class="mini" data-shop10="${it.id}" ${(S.gp<it.cost*10||locked)?'disabled':''}>×10</button></div>`;
+      <button class="mini buy${pick&&pick.id===it.id&&pick.mode==='shop'?' on':''}" data-pick="shop:${it.id}" ${(S.gp<it.cost||locked)?'disabled':''}>${fmt(it.cost)} gp</button></div>`;
+    if(!locked)h+=pickStrip(it.id,'shop',it.cost,Math.floor(S.gp/it.cost),`you can afford ${fmt(Math.floor(S.gp/it.cost))}`);
   }
   const totLvl=ALL_SKILLS.reduce((n,k)=>n+lvlFor(S.xp[k]||0),0);
   const totXp=ALL_SKILLS.reduce((n,k)=>n+(S.xp[k]||0),0);
@@ -1639,8 +1674,13 @@ $('view').addEventListener('click',e=>{
   if(b.dataset.pickcancel){pick=null;render();return;}
   if(b.dataset.pickqty){
     if(!pick)return;
-    const n=Math.min(parseInt(b.dataset.pickqty,10)||0,have(pick.id));
-    if(n>0){if(pick.mode==='sell')vendor(pick.id,n);else listOffer(pick.id,n);}
+    const q=parseInt(b.dataset.pickqty,10)||0;
+    if(q>0){
+      if(pick.mode==='sell')vendor(pick.id,q);
+      else if(pick.mode==='list')listOffer(pick.id,q);
+      else if(pick.mode==='order')buyOffer(pick.id,q);
+      else if(pick.mode==='shop')shopBuy(pick.id,q);
+    }
     pick=null;render();save();return;
   }
   if(b.dataset.equip){
@@ -1718,14 +1758,6 @@ $('view').addEventListener('click',e=>{
     render();save();toast('Save restored');
     return;
   }
-  if(b.dataset.order){
-    const id=b.dataset.order,qty=100,price=marketPrice(id);
-    if((S.offers||[]).length>=GE_SLOTS){toast('No free offer slots');return;}
-    if(S.gp<price*qty)return;
-    S.gp-=price*qty;
-    S.offers.push({kind:'buy',id,qty,filled:0,price});
-    toast(`Buying ${qty}× ${item(id).n}`);render();save();return;
-  }
   if(b.dataset.nudge){
     const o=S.offers[+b.dataset.nudge];if(!o)return;
     if(o.kind==='sell')o.price=Math.max(1,Math.round(o.price*0.92));
@@ -1781,13 +1813,6 @@ $('view').addEventListener('click',e=>{
     S.farm[i]={crop:null,ms:0};
     toast(got?`Harvested ${got}× ${item(c.out).n}`:'Bank full — harvest lost');
     render();save();return;
-  }
-  if(b.dataset.shop||b.dataset.shop10){
-    const id=b.dataset.shop||b.dataset.shop10,qty=b.dataset.shop10?10:1;
-    const st=STOCK.find(x=>x.id===id);if(!st)return;
-    const cost=st.cost*qty;if(S.gp<cost)return;
-    if(!hasSlot(id)){toast('No free bank slot');return;}
-    S.gp-=cost;add(id,qty);toast(`Bought ${qty}× ${item(id).n}`);render();save();return;
   }
   if(b.dataset.bank){
     const t=(S.bankTier||0)+1;if(!BANK_TIERS[t]||S.gp<BANK_COST[t])return;

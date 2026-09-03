@@ -197,7 +197,7 @@
 </div></div>
 
 <script>
-const APP_VERSION='5.2';   /* bumped every release; the updater reads this string */
+const APP_VERSION='5.3';   /* bumped every release; the updater reads this string */
 
 /* ------------------------------------------------------------------
    Self-updating. The service worker serves the page network-first, so a
@@ -550,12 +550,18 @@ const COMBAT_SKILLS=['attack','strength','defence','hitpoints','ranged','magic',
 const ALL_SKILLS=[...COMBAT_SKILLS,...Object.keys(SKILLS)];
 
 const FOES=[
-  {id:'rat',weak:'melee',n:'Giant rat',lvl:2,hp:8,max:2,spd:3000,xp:14,gp:[1,4],drop:{bones:1,newt_eye:1}},
-  {id:'gob',weak:'ranged',n:'Goblin',lvl:8,hp:18,max:4,spd:2900,xp:36,gp:[5,18],drop:{bones:1,goblin_ash:1}},
-  {id:'ban',weak:'magic',n:'Bandit',lvl:18,hp:34,max:7,spd:2800,xp:80,gp:[25,70],drop:{bones:1}},
-  {id:'wlf',weak:'ranged',n:'Dire wolf',lvl:30,hp:56,max:10,spd:2500,xp:150,gp:[50,120],drop:{pelt:1,bones:1}},
-  {id:'trl',weak:'magic',n:'Cave troll',lvl:48,hp:110,max:16,spd:3200,xp:320,gp:[120,300],drop:{big_bones:1,troll_fat:1}},
-  {id:'wra',weak:'ranged',n:'Barrow wraith',lvl:70,hp:190,max:24,spd:2700,xp:640,gp:[280,700],drop:{shard:1,big_bones:1,wraith_dust:1}},
+  {id:'rat',weak:'melee',n:'Giant rat',lvl:2,hp:8,max:2,spd:3000,xp:14,gp:[1,4],drop:{bones:1,newt_eye:1},
+   rare:{id:'grimy_bitterleaf',c:.03}},
+  {id:'gob',weak:'ranged',n:'Goblin',lvl:8,hp:18,max:4,spd:2900,xp:36,gp:[5,18],drop:{bones:1,goblin_ash:1},
+   rare:{id:'grimy_bitterleaf',c:.05}},
+  {id:'ban',weak:'magic',n:'Bandit',lvl:18,hp:34,max:7,spd:2800,xp:80,gp:[25,70],drop:{bones:1},
+   rare:{id:'grimy_marshroot',c:.05}},
+  {id:'wlf',weak:'ranged',n:'Dire wolf',lvl:30,hp:56,max:10,spd:2500,xp:150,gp:[50,120],drop:{pelt:1,bones:1},
+   rare:[{id:'grimy_marshroot',c:.06},{id:'grimy_emberwort',c:.03}]},
+  {id:'trl',weak:'magic',n:'Cave troll',lvl:48,hp:110,max:16,spd:3200,xp:320,gp:[120,300],drop:{big_bones:1,troll_fat:1},
+   rare:[{id:'grimy_emberwort',c:.07},{id:'grimy_sunthistle',c:.035}]},
+  {id:'wra',weak:'ranged',n:'Barrow wraith',lvl:70,hp:190,max:24,spd:2700,xp:640,gp:[280,700],drop:{shard:1,big_bones:1,wraith_dust:1},
+   rare:[{id:'grimy_sunthistle',c:.07},{id:'grimy_frostvein',c:.035}]},
 ];
 
 const STOCK=[
@@ -857,6 +863,9 @@ function resetSess(){S.sess={kills:0,gp:0,dealt:0,taken:0,eaten:0,deaths:0,swing
 
 function prayerBonus(){const p=lvl('prayer');return{hit:Math.floor(p/18),soak:Math.floor(p/12)};}
 function allFoes(){return FOES.concat(BOSSES);}
+/* A foe's `rare` may be one {id,c[,n]} or a list of them. Normalising here
+   means the kill handler and the Fight tab read it the same way. */
+function rareTable(f){return f.rare?[].concat(f.rare):[];}
 
 function fightTick(dt,foe){
   if(!foe)return;
@@ -904,6 +913,12 @@ function fightTick(dt,foe){
         S.sess.gp+=gp;
         const drops=[];
         for(const k in foe.drop){add(k,foe.drop[k]);noteItem(k,foe.drop[k]);drops.push(`${foe.drop[k]}× ${item(k).n}`);}
+        // Rare table. Each entry rolls independently, so a foe can pay out more
+        // than one. These join the normal loot line rather than announcing
+        // themselves — noteItem still books them into the offline summary.
+        for(const r of rareTable(foe)){
+          if(Math.random()<r.c){const n=r.n||1;add(r.id,n);noteItem(r.id,n);drops.push(`${n}× ${item(r.id).n}`);}
+        }
         pushLog(`${foe.n} dies — kill ${S.kills[foe.id]}, +${foe.xp} defence xp`,'kill');
         pushLog(`Loot: ${gp} gp${drops.length?', '+drops.join(', '):''}`,'loot');
         if(foe.delve){
@@ -995,7 +1010,14 @@ function autoEat(){
 /* ---- Slayer ---- */
 function rollTask(){
   const cl=combatLvl();
-  const pool=FOES.filter(f=>f.lvl<=cl+8);
+  // Eligible by ceiling, then narrowed by a floor so combat 99 stops being
+  // handed giant rats. If the floor empties the pool — high combat, no content
+  // that high yet — fall back to the three hardest things that are eligible
+  // rather than the whole list, which would put the rat back on the table.
+  // Assumes FOES stays sorted by level; keep new entries in order.
+  const elig=FOES.filter(f=>f.lvl<=cl+8);
+  const banded=elig.filter(f=>f.lvl>=cl-25);
+  const pool=banded.length?banded:elig.slice(-3);
   const foe=pool[Math.floor(Math.random()*pool.length)]||FOES[0];
   const need=8+Math.floor(Math.random()*18);
   S.task={foe:foe.id,need,done:0};
@@ -1323,7 +1345,8 @@ function viewFight(){
     h+=`<button class="act${on?' on fight':''}" data-go="fight:${f.id}">
       <span><span>${f.n}${isTask?' &middot; task':''}</span>
       <span class="meta">${f.hp} hp &middot; hits up to ${f.max} &middot; ${fmt(f.gp[0])}–${fmt(f.gp[1])} gp &middot; killed ${S.kills[f.id]||0}
-      ${f.weak?`&middot; <span class="${f.weak===st?'weak':'resist'}">weak to ${f.weak}</span>`:''}</span></span>
+      ${f.weak?`&middot; <span class="${f.weak===st?'weak':'resist'}">weak to ${f.weak}</span>`:''}
+      ${rareTable(f).map(r=>`&middot; ${(r.c*100).toFixed(1)}% ${item(r.id).n}`).join('')}</span></span>
       <span class="rt">lv ${f.lvl}<br>${f.xp} xp</span></button>`;
   }
   return h;

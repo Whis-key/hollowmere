@@ -1,0 +1,9 @@
+# Build output
+build/
+.gradle/
+
+# The decrypted signing key must never be committed.
+# Only keystore.jks.enc (encrypted with the KEYSTORE_PASSWORD secret) belongs
+# in this repo — losing it means no future build can update an installed app.
+keystore.jks
+local.properties

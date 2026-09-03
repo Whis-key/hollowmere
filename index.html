@@ -197,7 +197,7 @@
 </div></div>
 
 <script>
-const APP_VERSION='5.3';   /* bumped every release; the updater reads this string */
+const APP_VERSION='5.4';   /* bumped every release; the updater reads this string */
 
 /* ------------------------------------------------------------------
    Self-updating. The service worker serves the page network-first, so a
@@ -530,7 +530,7 @@ const ROOMS=[
   {id:'workshop',n:'Workshop',desc:t=>`Smithing, Crafting and Fletching ${t*7}% faster`,cost:t=>({gp:9000*t*t,willow_logs:50*t,steel_bar:20*t})},
   {id:'garden',n:'Garden',desc:t=>`+${t} farm patch${t>1?'es':''}`,cost:t=>({gp:12000*t*t,maple_logs:40*t,vial:30*t})},
   {id:'kitchen',n:'Kitchen',desc:t=>`Food heals ${t*25}% more`,cost:t=>({gp:6000*t*t,oak_logs:60*t,bronze_bar:25*t})},
-  {id:'storeroom',n:'Storeroom',desc:t=>`+${t*400} bank space`,cost:t=>({gp:15000*t*t,maple_logs:80*t,steel_bar:30*t})},
+  {id:'storeroom',n:'Storeroom',desc:t=>`+${t*8} bank slots`,cost:t=>({gp:15000*t*t,maple_logs:80*t,steel_bar:30*t})},
   {id:'trophy',n:'Trophy hall',desc:t=>`+${t*7}% gold from every source`,cost:t=>({gp:25000*t*t,yew_logs:50*t,cobalt_bar:20*t})},
 ];
 const PETS={
@@ -544,7 +544,7 @@ const GE_TICK=5*60000;
 const GE_SLOTS=4;
 const BUYABLE=['coal','iron_ore','copper_ore','tin_ore','pine_logs','oak_logs','willow_logs',
   'feather','vial','rune_essence','bronze_bar','iron_bar','steel_bar'];
-const BANK_TIERS=[400,800,1600,3200,6400];
+const BANK_TIERS=[40,60,80,105,135];   /* SLOTS, not item count */
 const BANK_COST=[0,3000,15000,70000,300000];
 const COMBAT_SKILLS=['attack','strength','defence','hitpoints','ranged','magic','slayer','farming'];
 const ALL_SKILLS=[...COMBAT_SKILLS,...Object.keys(SKILLS)];
@@ -732,18 +732,38 @@ function ringGold(){const r=S.equip.ring;return r&&EQ[r]&&EQ[r].gold?EQ[r].gold:
 function goldMul(){return 1+room('trophy')*0.07+ringGold();}
 function gainGp(n){const g=Math.round(n*goldMul());S.gp+=g;noteGp(g);return g;}
 function totalPatches(){return Math.min(8,(S.patches||3)+room('garden'));}
-function bankCap(){return BANK_TIERS[S.bankTier||0]+room('storeroom')*400;}
-function bankUsed(){let n=0;for(const k in S.bank)n+=S.bank[k];return n;}
+/* Bank capacity is SLOTS — distinct item types. Stacks are unlimited, the way
+   they are in RuneScape. An over-cap save (from before the switch) keeps
+   everything it holds and is only blocked from taking on NEW item types, so
+   nobody loses anything on the changeover. */
+function bankCap(){return BANK_TIERS[S.bankTier||0]+room('storeroom')*8;}
+function bankUsed(){let n=0;for(const k in S.bank)if(S.bank[k]>0)n++;return n;}
 function bankFull(){return bankUsed()>=bankCap();}
+function hasSlot(id){return !!S.bank[id]||bankUsed()<bankCap();}
+// How many free slots a set of incoming ids would consume.
+function slotsFor(ids){let n=0;for(const id of ids)if(!S.bank[id])n++;return n;}
 function add(id,n){
-  const room=bankCap()-bankUsed();
-  if(room<=0){pushLog(`Bank full — ${item(id).n} lost`,'miss');return 0;}
-  const got=Math.min(n,room);
-  S.bank[id]=(S.bank[id]||0)+got;
-  if(got<n)pushLog(`Bank full — ${n-got}× ${item(id).n} lost`,'miss');
-  return got;
+  if(!hasSlot(id)){pushLog(`No free bank slot — ${n}× ${item(id).n} lost`,'miss');return 0;}
+  S.bank[id]=(S.bank[id]||0)+n;
+  return n;
 }
 function take(id,n){S.bank[id]=(S.bank[id]||0)-n;if(S.bank[id]<=0)delete S.bank[id];}
+/* Only strip the item off you if the last one actually left the bank — the old
+   sell-everything handler could unequip on a partial sale. */
+function unequipIfGone(id){if(!have(id)&&EQ[id]&&S.equip[EQ[id].slot]===id)S.equip[EQ[id].slot]=null;}
+function vendor(id,n){
+  n=Math.min(n,have(id));if(n<=0)return;
+  const val=Math.floor(item(id).v*0.7)*n;
+  take(id,n);unequipIfGone(id);
+  S.gp+=val;toast(`Vendored ${fmt(n)}× ${item(id).n} for ${fmt(val)} gp`);
+}
+function listOffer(id,n){
+  n=Math.min(n,have(id));if(n<=0)return;
+  if((S.offers||[]).length>=GE_SLOTS){toast('No free offer slots');return;}
+  take(id,n);unequipIfGone(id);
+  S.offers.push({kind:'sell',id,qty:n,filled:0,price:marketPrice(id)});
+  toast(`Listed ${fmt(n)}× ${item(id).n}`);
+}
 function canPay(inp){if(!inp)return true;for(const k in inp)if(have(k)<inp[k])return false;return true;}
 
 function findAct(key){
@@ -834,7 +854,8 @@ function tick(dt){
   let guard=0;
   while(S.prog>=dur&&guard++<600){
     if(!canPay(a.in)){S.prog=0;if(!gains)toast('Out of materials');S.act=null;return;}
-    if(a.out&&bankFull()){S.prog=0;if(!gains)toast('Bank is full');S.act=null;return;}
+    if(a.out&&slotsFor(Object.keys(a.out))>bankCap()-bankUsed()){
+      S.prog=0;if(!gains)toast('No free bank slot');S.act=null;return;}
     S.prog-=dur;
     if(a.fail!==undefined&&Math.random()<a.fail){
       grantXp(skill,Math.round(a.xp*0.15));
@@ -1172,6 +1193,9 @@ async function wipe(){
    RENDER
    ============================================================ */
 let tab='train',openGroups=new Set();
+/* Which bank row has its quantity strip open, {id,mode}. Deliberately not on S
+   — it is throwaway UI state and has no business in the save file. */
+let pick=null;
 const $=id=>document.getElementById(id);
 const fmt=n=>n>=1e6?(n/1e6).toFixed(2)+'m':n>=1e4?Math.floor(n/1e3)+'k':String(Math.round(n));
 
@@ -1378,11 +1402,12 @@ function viewBank(){
   const used=bankUsed(),cap=bankCap(),pctc=(used/cap)*100;
   const capbar=`<div class="cap"><i class="${pctc>=100?'full':pctc>80?'warn':''}" style="width:${Math.min(100,pctc)}%"></i></div>`;
   const keys=Object.keys(S.bank).filter(k=>S.bank[k]>0);
-  if(!keys.length)return `<h2>Bank &middot; ${fmt(used)} / ${fmt(cap)}</h2>${capbar}<div class="empty">Empty. Go chop something.</div>`;
+  if(!keys.length)return `<h2>Bank &middot; ${used} / ${cap} slots</h2>${capbar}<div class="empty">Empty. Go chop something.</div>`;
   keys.sort((a,b)=>item(a).n.localeCompare(item(b).n));
   const worth=keys.reduce((n,k)=>n+item(k).v*S.bank[k],0);
-  let h=`<h2>Bank &middot; ${fmt(used)} / ${fmt(cap)} &middot; worth ${fmt(worth)} gp</h2>${capbar}`;
-  if(pctc>=100)h+=`<div class="empty" style="color:var(--blood)">Bank is full. Gathering has stopped and drops are being lost.</div>`;
+  let h=`<h2>Bank &middot; ${used} / ${cap} slots &middot; worth ${fmt(worth)} gp</h2>${capbar}`;
+  if(pctc>=100)h+=`<div class="empty" style="color:var(--blood)">Every slot is taken. Gathering has stopped and new item types are being lost.</div>`;
+  const geFull=(S.offers||[]).length>=GE_SLOTS;
   for(const k of keys){
     const it=item(k),n=S.bank[k],eq=EQ[k];
     const worn=eq&&S.equip[eq.slot]===k;
@@ -1393,8 +1418,18 @@ function viewBank(){
     h+=`<div class="row"><div class="grow"><b>${it.n}</b><span>${tags.join(' · ')}</span></div>
       <span class="qty num">${fmt(n)}</span>
       ${eq?`<button class="mini eq" data-equip="${k}">${worn?'Worn':'Equip'}</button>`:''}
-      <button class="mini" data-list="${k}" ${(S.offers||[]).length>=GE_SLOTS?'disabled':''}>List</button>
-      <button class="mini" data-sell="${k}">Vendor</button></div>`;
+      <button class="mini${pick&&pick.id===k&&pick.mode==='list'?' on':''}" data-pick="list:${k}" ${geFull?'disabled':''}>List</button>
+      <button class="mini${pick&&pick.id===k&&pick.mode==='sell'?' on':''}" data-pick="sell:${k}">Vendor</button></div>`;
+    // Quantity strip. No number inputs anywhere else in this app, so it stays
+    // buttons: the round numbers you actually own, then All.
+    if(pick&&pick.id===k){
+      const unit=pick.mode==='sell'?Math.floor(it.v*0.7):marketPrice(k);
+      const opts=[1,10,100,1000,10000].filter(q=>q<n);opts.push(n);
+      h+=`<div class="row"><div class="grow"><b>${pick.mode==='sell'?'Vendor':'List'} how many?</b>
+        <span>${fmt(unit)} gp each &middot; ${fmt(n)} held</span></div></div>
+        <div class="row">${opts.map(q=>`<button class="mini buy" data-pickqty="${q}">${q===n?`All ${fmt(n)}`:fmt(q)}</button>`).join('')}
+        <button class="mini" data-pickcancel="1">Cancel</button></div>`;
+    }
   }
   return h;
 }
@@ -1442,7 +1477,7 @@ function viewShop(){
   }
   h+=`<h2>Your house</h2>`;
   h+=`<div class="row"><div class="grow"><b>Passive bonuses</b>
-    <span>Gold ×${goldMul().toFixed(2)} &middot; ${totalPatches()} patches &middot; ${fmt(bankCap())} bank
+    <span>Gold ×${goldMul().toFixed(2)} &middot; ${totalPatches()} patches &middot; ${bankCap()} bank slots
     &middot; crafting ${Math.round(room('workshop')*7)}% faster</span></div></div>`;
   for(const r of ROOMS){
     const t=room(r.id),nt=t+1;
@@ -1456,7 +1491,7 @@ function viewShop(){
   }
   h+=`<h2>Bank space</h2>`;
   const bt=S.bankTier||0,nextCap=BANK_TIERS[bt+1];
-  h+=`<div class="row"><div class="grow"><b>${fmt(bankUsed())} / ${fmt(bankCap())} items</b>
+  h+=`<div class="row"><div class="grow"><b>${bankUsed()} / ${bankCap()} slots</b>
     <span>${nextCap?`Next: ${fmt(nextCap)} slots`:'Fully expanded'}</span></div>
     ${nextCap?`<button class="mini buy" data-bank="1" ${S.gp<BANK_COST[bt+1]?'disabled':''}>${fmt(BANK_COST[bt+1])} gp</button>`:''}</div>`;
 
@@ -1574,7 +1609,7 @@ function render(){
    INPUT
    ============================================================ */
 document.querySelector('nav').addEventListener('click',e=>{
-  const b=e.target.closest('button');if(!b)return;tab=b.dataset.tab;render();
+  const b=e.target.closest('button');if(!b)return;tab=b.dataset.tab;pick=null;render();
 });
 $('view').addEventListener('click',e=>{
   const b=e.target.closest('button');if(!b)return;
@@ -1594,11 +1629,19 @@ $('view').addEventListener('click',e=>{
     }
     render();save();return;
   }
-  if(b.dataset.sell){
-    const k=b.dataset.sell,n=S.bank[k],val=Math.floor(item(k).v*0.7)*n;
-    if(EQ[k]&&S.equip[EQ[k].slot]===k)S.equip[EQ[k].slot]=null;
-    delete S.bank[k];S.gp+=val;toast(`Vendored ${fmt(n)}× ${item(k).n} for ${fmt(val)} gp`);
-    render();save();return;
+  if(b.dataset.pick){
+    const i=b.dataset.pick.indexOf(':');
+    const mode=b.dataset.pick.slice(0,i),id=b.dataset.pick.slice(i+1);
+    if(mode==='list'&&(S.offers||[]).length>=GE_SLOTS){toast('No free offer slots');return;}
+    pick=(pick&&pick.id===id&&pick.mode===mode)?null:{id,mode};
+    render();return;
+  }
+  if(b.dataset.pickcancel){pick=null;render();return;}
+  if(b.dataset.pickqty){
+    if(!pick)return;
+    const n=Math.min(parseInt(b.dataset.pickqty,10)||0,have(pick.id));
+    if(n>0){if(pick.mode==='sell')vendor(pick.id,n);else listOffer(pick.id,n);}
+    pick=null;render();save();return;
   }
   if(b.dataset.equip){
     const k=b.dataset.equip,eq=EQ[k];
@@ -1675,14 +1718,6 @@ $('view').addEventListener('click',e=>{
     render();save();toast('Save restored');
     return;
   }
-  if(b.dataset.list){
-    const id=b.dataset.list,qty=have(id);
-    if(!qty||(S.offers||[]).length>=GE_SLOTS){toast('No free offer slots');return;}
-    if(EQ[id]&&S.equip[EQ[id].slot]===id)S.equip[EQ[id].slot]=null;
-    take(id,qty);
-    S.offers.push({kind:'sell',id,qty,filled:0,price:marketPrice(id)});
-    toast(`Listed ${fmt(qty)}× ${item(id).n}`);render();save();return;
-  }
   if(b.dataset.order){
     const id=b.dataset.order,qty=100,price=marketPrice(id);
     if((S.offers||[]).length>=GE_SLOTS){toast('No free offer slots');return;}
@@ -1751,12 +1786,12 @@ $('view').addEventListener('click',e=>{
     const id=b.dataset.shop||b.dataset.shop10,qty=b.dataset.shop10?10:1;
     const st=STOCK.find(x=>x.id===id);if(!st)return;
     const cost=st.cost*qty;if(S.gp<cost)return;
-    if(bankCap()-bankUsed()<qty){toast('Bank is full');return;}
+    if(!hasSlot(id)){toast('No free bank slot');return;}
     S.gp-=cost;add(id,qty);toast(`Bought ${qty}× ${item(id).n}`);render();save();return;
   }
   if(b.dataset.bank){
     const t=(S.bankTier||0)+1;if(!BANK_TIERS[t]||S.gp<BANK_COST[t])return;
-    S.gp-=BANK_COST[t];S.bankTier=t;toast(`Bank expanded to ${fmt(BANK_TIERS[t])}`);render();save();return;
+    S.gp-=BANK_COST[t];S.bankTier=t;toast(`Bank expanded to ${BANK_TIERS[t]} slots`);render();save();return;
   }
   if(b.dataset.patch){
     const cost=[0,0,0,8000,40000,180000][S.patches];

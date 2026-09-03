@@ -10,13 +10,31 @@ android {
         applicationId "io.github.whiskey.hollowmere"
         minSdk 26
         targetSdk 34
-        versionCode 1
-        versionName "1.0"
+        // Must increase on every release or Android refuses the update.
+        // CI supplies the run number; a local build falls back to 1.
+        versionCode(System.getenv("APP_VERSION_CODE") ? System.getenv("APP_VERSION_CODE").toInteger() : 1)
+        versionName "1.0.${System.getenv('APP_VERSION_CODE') ?: '0'}"
+    }
+
+    signingConfigs {
+        release {
+            // Written by the workflow: decrypted from keystore.jks.enc using
+            // the KEYSTORE_PASSWORD secret. Same key every build, which is what
+            // lets a new APK install over the old one and keep its saves.
+            def ks = file("${rootDir}/keystore.jks")
+            if (ks.exists()) {
+                storeFile ks
+                storePassword System.getenv("KEYSTORE_PASSWORD")
+                keyAlias "hollowmere"
+                keyPassword System.getenv("KEYSTORE_PASSWORD")
+            }
+        }
     }
 
     buildTypes {
         release {
             minifyEnabled false
+            signingConfig signingConfigs.release
         }
     }
 

@@ -17,8 +17,55 @@ jobs:
   build:
     runs-on: ubuntu-latest
 
+    env:
+      KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+      APP_VERSION_CODE: ${{ github.run_number }}
+
     steps:
       - uses: actions/checkout@v4
+
+      - name: Check the signing secret exists
+        run: |
+          if [ -z "$KEYSTORE_PASSWORD" ]; then
+            echo "::error::KEYSTORE_PASSWORD secret is not set."
+            echo "Add it under Settings -> Secrets and variables -> Actions."
+            exit 1
+          fi
+
+      # First run creates the key and commits it back, encrypted. Every run
+      # after that decrypts the same one, so all builds share a signature and
+      # install over each other without wiping app data.
+      - name: Restore or create the signing keystore
+        run: |
+          set -euo pipefail
+          if [ -f android/keystore.jks.enc ]; then
+            echo "Decrypting the existing keystore."
+            openssl enc -aes-256-cbc -pbkdf2 -iter 100000 -d \
+              -in android/keystore.jks.enc \
+              -out android/keystore.jks \
+              -pass env:KEYSTORE_PASSWORD
+          else
+            echo "No keystore yet — generating one."
+            keytool -genkeypair -noprompt \
+              -keystore android/keystore.jks \
+              -alias hollowmere \
+              -keyalg RSA -keysize 2048 -validity 10000 \
+              -storepass "$KEYSTORE_PASSWORD" \
+              -keypass "$KEYSTORE_PASSWORD" \
+              -dname "CN=Hollowmere, O=Hollowmere, C=US"
+            openssl enc -aes-256-cbc -pbkdf2 -iter 100000 -salt \
+              -in android/keystore.jks \
+              -out android/keystore.jks.enc \
+              -pass env:KEYSTORE_PASSWORD
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add android/keystore.jks.enc
+            # [skip ci] stops this commit from triggering another build
+            git commit -m "Add encrypted signing keystore [skip ci]"
+            git push
+            echo "Keystore created and committed. Guard it — losing it means no"
+            echo "future build can update an installed app without an uninstall."
+          fi
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -32,23 +79,23 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Build debug APK
+      - name: Build signed release APK
         working-directory: android
-        run: gradle assembleDebug --no-daemon --stacktrace
+        run: gradle assembleRelease --no-daemon --stacktrace
+
+      - name: Confirm the APK is signed
+        run: |
+          APK=$(find android/app/build/outputs/apk/release -name '*.apk' | head -1)
+          BUILD_TOOLS=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          "$BUILD_TOOLS/apksigner" verify --print-certs "$APK"
 
       - name: Publish APK to the android-latest release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          APK=$(find android/app/build/outputs/apk/debug -name '*.apk' | head -1)
-          echo "Publishing $APK"
+          APK=$(find android/app/build/outputs/apk/release -name '*.apk' | head -1)
           cp "$APK" hollowmere.apk
           gh release delete android-latest --yes --cleanup-tag || true
           gh release create android-latest hollowmere.apk \
-            --title "Hollowmere APK (debug)" \
-            --notes "Debug build from ${{ github.sha }}.
-
-          Download hollowmere.apk below and open it on your phone to install.
-          The game itself is loaded from GitHub Pages at runtime, so this APK
-          only needs rebuilding when the Android shell changes — not when the
-          game changes."
+            --title "Hollowmere APK" \
+            --notes "Signed release build, versionCode ${{ github.run_number }}, from ${{ github.sha }}. Installs over the previous version and keeps your saves. The game is loaded from GitHub Pages at runtime, so this APK only needs rebuilding when the Android shell changes, not when the game changes."

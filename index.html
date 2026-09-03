@@ -1,0 +1,1766 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<title>Hollowmere</title>
+<link rel="manifest" href="./manifest.webmanifest">
+<meta name="theme-color" content="#241d18">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="apple-touch-icon" href="./icon-192.png">
+<style>
+  :root{
+    --ink:#17130f; --panel:#241d18; --panel2:#2e2620; --edge:#463a2e;
+    --parch:#ddd0b4; --dim:#95866f; --gold:#c9a227; --moss:#7a9b52;
+    --blood:#a44242; --sky:#5c86a8; --violet:#8a6ea8;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;padding:0;height:100%}
+  body{background:var(--ink);color:var(--parch);
+    font:15px/1.45 "Iowan Old Style",Georgia,"Times New Roman",serif;
+    display:flex;flex-direction:column;overscroll-behavior:none}
+  .num{font-variant-numeric:tabular-nums}
+
+  header{flex:0 0 auto;background:var(--panel);border-bottom:2px solid var(--edge);
+    padding:calc(env(safe-area-inset-top) + 8px) 12px 8px}
+  .crown{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+  .crown h1{margin:0;font-size:19px;font-weight:600;letter-spacing:.03em;color:var(--gold)}
+  .purse{font-size:14px;color:var(--gold);font-variant-numeric:tabular-nums}
+  .purse span{color:var(--dim)}
+  .doing{margin-top:8px}
+  .doing-row{display:flex;justify-content:space-between;align-items:baseline;font-size:13px}
+  .doing-row em{font-style:normal;color:var(--dim);font-size:12px}
+  .bar{height:7px;margin-top:5px;background:#160f0a;border:1px solid var(--edge);border-radius:2px;overflow:hidden}
+  .bar i{display:block;height:100%;width:0;background:var(--moss);transition:width .1s linear}
+  .bar.fight i{background:var(--blood)}
+  .bar.stun i{background:var(--violet)}
+  .styles{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:10px}
+  .styles div{background:var(--panel);border:1px solid var(--edge);border-radius:3px;padding:6px 7px;text-align:center}
+  .styles div.act{border-color:var(--gold);color:var(--gold)}
+  .styles .n{font-size:11px;color:var(--dim);display:block}
+  .styles .v{font-size:14px}
+  .weak{color:var(--moss)} .resist{color:var(--blood)}
+  .idlemsg{color:var(--dim);font-size:13px;font-style:italic}
+
+  main{flex:1 1 auto;overflow-y:auto;padding:10px 12px 14px;-webkit-overflow-scrolling:touch}
+  h2{font-size:15px;margin:16px 0 8px;color:var(--gold);font-weight:600}
+  h2:first-child{margin-top:2px}
+
+  .skills{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+  .sk{background:var(--panel);border:1px solid var(--edge);border-radius:3px;padding:6px 7px}
+  .sk.max{border-color:var(--gold)}
+  .sk .n{font-size:11px;color:var(--dim);display:block}
+  .sk .v{font-size:17px;font-variant-numeric:tabular-nums}
+  .sk .xpbar{height:3px;background:#160f0a;margin-top:3px}
+  .sk .xpbar i{display:block;height:100%;background:var(--gold)}
+
+  .group{border:1px solid var(--edge);border-radius:3px;margin-bottom:8px;overflow:hidden}
+  .group>summary{list-style:none;cursor:pointer;padding:11px 12px;background:var(--panel);
+    display:flex;justify-content:space-between;align-items:center;font-weight:600}
+  .group>summary::-webkit-details-marker{display:none}
+  .group>summary .lv{font-weight:400;color:var(--dim);font-size:13px}
+  .group[open]>summary{border-bottom:1px solid var(--edge)}
+  .subhead{padding:6px 12px;background:#1e1813;font-size:12px;color:var(--dim);border-bottom:1px solid #1c1611}
+
+  .act{width:100%;text-align:left;border:0;border-bottom:1px solid #1c1611;
+    background:var(--panel2);color:var(--parch);font:inherit;padding:11px 12px;min-height:52px;
+    display:flex;justify-content:space-between;align-items:center;gap:10px}
+  .act:last-child{border-bottom:0}
+  .act:active{background:#3a2f26}
+  .act.on{background:#33402a;box-shadow:inset 3px 0 0 var(--moss)}
+  .act.on.fight{background:#40292a;box-shadow:inset 3px 0 0 var(--blood)}
+  .act[disabled]{color:#6b5f4f;background:#1e1813}
+  .act .meta{font-size:12px;color:var(--dim);display:block;margin-top:2px}
+  .act[disabled] .meta{color:#5a5044}
+  .act .rt{font-size:12px;color:var(--dim);text-align:right;flex:0 0 auto;white-space:nowrap}
+
+  .row{display:flex;align-items:center;gap:10px;padding:9px 11px;background:var(--panel);
+    border:1px solid var(--edge);border-radius:3px;margin-bottom:6px}
+  .row.done{border-color:var(--moss)}
+  .row.ready{border-color:var(--gold)}
+  .row .grow{flex:1 1 auto;min-width:0}
+  .row .grow b{display:block;font-weight:600}
+  .row .grow span{font-size:12px;color:var(--dim)}
+  .qty{font-variant-numeric:tabular-nums;color:var(--gold);font-size:16px;flex:0 0 auto}
+  button.mini{flex:0 0 auto;border:1px solid var(--edge);background:var(--panel2);color:var(--parch);
+    font:inherit;font-size:13px;padding:8px 11px;border-radius:3px;min-height:40px;min-width:56px}
+  button.mini:active{background:#3a2f26}
+  button.mini[disabled]{color:#5f5545;border-color:#332a22}
+  button.mini.buy{color:var(--gold)}
+  button.mini.eq{color:var(--sky)}
+  .empty{color:var(--dim);font-style:italic;padding:14px 2px}
+
+  .arena{position:sticky;top:0;z-index:4;box-shadow:0 -14px 0 var(--ink);background:var(--panel);border:1px solid var(--edge);border-radius:3px;padding:11px 12px;margin-bottom:10px}
+  .hpline{display:flex;justify-content:space-between;font-size:13px;margin-bottom:3px}
+  .hpbar{height:9px;background:#160f0a;border:1px solid var(--edge);border-radius:2px;overflow:hidden;margin-bottom:9px}
+  .hpbar i{display:block;height:100%;background:var(--moss);transition:width .15s}
+  .task{background:#2a2418;border:1px solid var(--gold);border-radius:3px;padding:10px 12px;margin-bottom:10px}
+  .task b{color:var(--gold)}
+  .log{font-size:12px;color:var(--dim);max-height:210px;overflow-y:auto;line-height:1.55;
+    background:#1b1611;border:1px solid var(--edge);border-radius:3px;padding:4px 8px}
+  .log div{border-bottom:1px solid #221b15;padding:2px 0;display:flex;gap:7px}
+  .log div:last-child{border-bottom:0}
+  .log .tm{color:#6b5f4f;flex:0 0 auto;font-variant-numeric:tabular-nums}
+  .log .hit{color:var(--parch)} .log .hit b{color:var(--moss)}
+  .log .miss{color:#6b5f4f}
+  .log .hurt{color:#c98a8a} .log .hurt b{color:var(--blood)}
+  .log .eat{color:var(--moss)}
+  .log .kill{color:var(--gold)}
+  .log .loot{color:var(--sky)}
+  .log .task{color:var(--violet)}
+  .log .dead{color:var(--blood);font-weight:600}
+  .sess{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:10px}
+  .sess div{background:var(--panel);border:1px solid var(--edge);border-radius:3px;padding:6px 7px}
+  .sess .n{font-size:11px;color:var(--dim);display:block}
+  .sess .v{font-size:15px;font-variant-numeric:tabular-nums}
+
+  .cap{height:8px;background:#160f0a;border:1px solid var(--edge);border-radius:2px;overflow:hidden;margin:6px 0 12px}
+  .cap i{display:block;height:100%;background:var(--moss)}
+  .cap i.warn{background:var(--gold)} .cap i.full{background:var(--blood)}
+  .patch{display:flex;align-items:center;gap:10px;padding:10px 11px;background:var(--panel);
+    border:1px solid var(--edge);border-radius:3px;margin-bottom:6px}
+  .patch.ready{border-color:var(--moss)}
+  .patch .grow{flex:1 1 auto;min-width:0}
+  .patch .grow b{display:block;font-weight:600}
+  .patch .grow span{font-size:12px;color:var(--dim)}
+  .patch .pbar{height:4px;background:#160f0a;margin-top:5px}
+  .patch .pbar i{display:block;height:100%;background:var(--moss)}
+  .boss{border-color:var(--violet)!important}
+  .offer{background:var(--panel);border:1px solid var(--edge);border-radius:3px;padding:9px 11px;margin-bottom:6px}
+  .offer.sell{border-left:3px solid var(--gold)} .offer.buy{border-left:3px solid var(--sky)}
+  .offer .top{display:flex;justify-content:space-between;align-items:baseline}
+  .offer .top b{font-weight:600}
+  .offer .sub{font-size:12px;color:var(--dim);margin-top:2px}
+  .offer .pbar{height:4px;background:#160f0a;margin:6px 0}
+  .offer .pbar i{display:block;height:100%;background:var(--moss)}
+  .offer .acts{display:flex;gap:6px}
+  .up{color:var(--moss)} .down{color:var(--blood)}
+  .savebox{width:100%;height:80px;background:#160f0a;color:var(--dim);border:1px solid var(--edge);
+    border-radius:3px;padding:8px;font:12px/1.4 ui-monospace,Menlo,monospace;resize:none}
+  .stats{display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin-bottom:10px}
+  .stats div{background:var(--panel);border:1px solid var(--edge);border-radius:3px;padding:7px 8px}
+  .stats .n{font-size:11px;color:var(--dim);display:block}
+  .stats .v{font-size:16px;font-variant-numeric:tabular-nums}
+  .pets{display:grid;grid-template-columns:repeat(2,1fr);gap:6px}
+  .pet{background:var(--panel);border:1px solid var(--edge);border-radius:3px;padding:7px 8px;font-size:12px}
+  .pet.got{border-color:var(--gold);color:var(--gold)}
+  .buffs{font-size:12px;color:var(--violet);margin-bottom:8px}
+  .slots{display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin-bottom:10px}
+  .slot{background:var(--panel);border:1px solid var(--edge);border-radius:3px;padding:7px 8px}
+  .slot .n{font-size:11px;color:var(--dim);display:block}
+  .slot .v{font-size:13px}
+  .slot.none .v{color:#6b5f4f;font-style:italic}
+
+  nav{flex:0 0 auto;display:grid;grid-template-columns:repeat(5,1fr);background:var(--panel);
+    border-top:2px solid var(--edge);padding-bottom:env(safe-area-inset-bottom)}
+  nav button{border:0;background:none;color:var(--dim);font:inherit;font-size:12px;padding:12px 2px;min-height:52px}
+  nav button.on{color:var(--gold);box-shadow:inset 0 2px 0 var(--gold)}
+  nav button .pip{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--gold);vertical-align:2px;margin-left:3px}
+
+  #toast{position:fixed;left:12px;right:12px;bottom:calc(64px + env(safe-area-inset-bottom));
+    background:var(--panel2);border:1px solid var(--gold);border-radius:3px;padding:10px 12px;
+    font-size:13px;opacity:0;pointer-events:none;transition:opacity .25s;z-index:9}
+  #toast.show{opacity:1}
+  #wb{position:fixed;inset:0;background:rgba(10,7,5,.88);z-index:20;display:none;align-items:center;justify-content:center;padding:20px}
+  #wb.show{display:flex}
+  #wb .card{background:var(--panel);border:1px solid var(--gold);border-radius:4px;padding:16px;max-width:340px;width:100%;max-height:80vh;overflow-y:auto}
+  #wb h3{margin:0 0 8px;color:var(--gold);font-size:17px}
+  #wb ul{margin:0 0 14px;padding-left:18px;font-size:14px}
+  #wb button{width:100%;border:1px solid var(--edge);background:var(--panel2);color:var(--parch);
+    font:inherit;padding:12px;border-radius:3px;min-height:48px}
+  @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="crown"><h1>Hollowmere</h1><div class="purse num" id="purse">0 <span>gp</span></div></div>
+  <div class="doing" id="doing"></div>
+</header>
+
+<main id="view"></main>
+
+<nav>
+  <button data-tab="train" class="on">Train</button>
+  <button data-tab="fight">Fight</button>
+  <button data-tab="quests">Quests</button>
+  <button data-tab="bank">Bank</button>
+  <button data-tab="shop">Town</button>
+</nav>
+
+<div id="toast"></div>
+<div id="wb"><div class="card">
+  <h3>While you were away</h3><ul id="wblist"></ul>
+  <button onclick="document.getElementById('wb').classList.remove('show')">Carry on</button>
+</div></div>
+
+<script>
+const APP_VERSION='5.1';   /* bumped every release; the updater reads this string */
+
+/* ------------------------------------------------------------------
+   Self-updating. The service worker serves the page network-first, so a
+   new upload is normally picked up on the next launch. This adds an
+   explicit check + one-tap apply for when you don't want to wait.
+   ------------------------------------------------------------------ */
+const Updater={
+  supported:(typeof navigator!=='undefined')&&('serviceWorker' in navigator)
+            &&location.protocol.indexOf('http')===0,
+  state:'idle',      // idle | checking | current | ready | offline
+  latest:null,
+  async register(){
+    if(!this.supported)return;
+    try{await navigator.serviceWorker.register('./sw.js');}catch(e){this.supported=false;}
+  },
+  async check(){
+    if(!this.supported){this.state='idle';return;}
+    this.state='checking';repaint();
+    try{
+      const res=await fetch('./index.html?v='+Date.now(),{cache:'no-store'});
+      if(!res.ok)throw new Error('bad response');
+      const text=await res.text();
+      const m=text.match(/APP_VERSION\s*=\s*'([^']+)'/);
+      if(!m)throw new Error('no version found');
+      this.latest=m[1];
+      this.state=(m[1]!==APP_VERSION)?'ready':'current';
+    }catch(e){this.state='offline';}
+    repaint();
+  },
+  async apply(){
+    if(this.state!=='ready')return;
+    await save();                              // never update over unsaved progress
+    try{
+      const keys=await caches.keys();
+      await Promise.all(keys.map(k=>caches.delete(k)));
+    }catch(e){}
+    try{
+      const reg=await navigator.serviceWorker.getRegistration();
+      if(reg){if(reg.waiting)reg.waiting.postMessage('SKIP_WAITING');await reg.update();}
+    }catch(e){}
+    location.reload();
+  }
+};
+/* ============================================================
+   XP TABLE — the classic curve, levels 1..99
+   ============================================================ */
+const XP=[0];
+(function(){let t=0;for(let l=1;l<99;l++){t+=Math.floor(l+300*Math.pow(2,l/7));XP.push(Math.floor(t/4));}})();
+function lvlFor(xp){let l=1;while(l<99&&XP[l]<=xp)l++;return l;}
+function xpInto(xp){const l=lvlFor(xp);if(l>=99)return{pct:100};
+  const a=XP[l-1],b=XP[l];return{pct:((xp-a)/(b-a))*100};}
+
+/* ============================================================
+   ITEMS
+   ============================================================ */
+const I={
+  pine_logs:{n:'Pine logs',v:4}, oak_logs:{n:'Oak logs',v:12}, willow_logs:{n:'Willow logs',v:26},
+  maple_logs:{n:'Maple logs',v:48}, yew_logs:{n:'Yew logs',v:110}, elder_logs:{n:'Elder logs',v:230},
+  copper_ore:{n:'Copper ore',v:5}, tin_ore:{n:'Tin ore',v:5}, iron_ore:{n:'Iron ore',v:16},
+  coal:{n:'Coal',v:32}, cobalt_ore:{n:'Cobalt ore',v:90}, adamant_ore:{n:'Adamant ore',v:210},
+  starsteel_ore:{n:'Starsteel ore',v:600},
+  bronze_bar:{n:'Bronze bar',v:22}, iron_bar:{n:'Iron bar',v:44}, steel_bar:{n:'Steel bar',v:130},
+  cobalt_bar:{n:'Cobalt bar',v:380}, adamant_bar:{n:'Adamant bar',v:900}, starsteel_bar:{n:'Starsteel bar',v:2400},
+  raw_minnow:{n:'Raw minnow',v:3}, raw_trout:{n:'Raw trout',v:14}, raw_perch:{n:'Raw perch',v:40},
+  raw_sturgeon:{n:'Raw sturgeon',v:105}, raw_shark:{n:'Raw shark',v:280},
+  minnow:{n:'Minnow',v:6,heal:3}, trout:{n:'Trout',v:24,heal:8}, perch:{n:'Perch',v:62,heal:14},
+  sturgeon:{n:'Sturgeon',v:150,heal:22}, shark:{n:'Shark',v:390,heal:32},
+  bones:{n:'Bones',v:3}, big_bones:{n:'Big bones',v:14},
+  pelt:{n:'Wolf pelt',v:75}, leather:{n:'Leather',v:110}, hard_leather:{n:'Hard leather',v:260},
+  silk:{n:'Silk',v:60}, shard:{n:'Void shard',v:900},
+  uncut_sapphire:{n:'Uncut sapphire',v:180}, uncut_emerald:{n:'Uncut emerald',v:420},
+  uncut_ruby:{n:'Uncut ruby',v:1100}, uncut_diamond:{n:'Uncut diamond',v:2800},
+  vial:{n:'Vial of water',v:12}, feather:{n:'Feather',v:4},
+  rune_essence:{n:'Rune essence',v:8},
+  ember_rune:{n:'Ember rune',v:26,ammo:'rune',str:5},
+  frost_rune:{n:'Frost rune',v:70,ammo:'rune',str:12},
+  storm_rune:{n:'Storm rune',v:190,ammo:'rune',str:24},
+  void_rune:{n:'Void rune',v:520,ammo:'rune',str:40},
+  bronze_arrow:{n:'Bronze arrow',v:6,ammo:'arrow',str:4},
+  iron_arrow:{n:'Iron arrow',v:15,ammo:'arrow',str:9},
+  steel_arrow:{n:'Steel arrow',v:42,ammo:'arrow',str:17},
+  cobalt_arrow:{n:'Cobalt arrow',v:110,ammo:'arrow',str:28},
+  adamant_arrow:{n:'Adamant arrow',v:280,ammo:'arrow',str:41},
+  starsteel_arrow:{n:'Starsteel arrow',v:700,ammo:'arrow',str:56},
+  newt_eye:{n:'Newt eye',v:20}, goblin_ash:{n:'Goblin ash',v:45},
+  troll_fat:{n:'Troll fat',v:180}, wraith_dust:{n:'Wraith dust',v:520},
+  boss_sigil:{n:'Boss sigil',v:0},
+  grimy_bitterleaf:{n:'Grimy bitterleaf',v:25}, bitterleaf:{n:'Bitterleaf',v:60},
+  grimy_marshroot:{n:'Grimy marshroot',v:60}, marshroot:{n:'Marshroot',v:140},
+  grimy_emberwort:{n:'Grimy emberwort',v:130}, emberwort:{n:'Emberwort',v:300},
+  grimy_sunthistle:{n:'Grimy sunthistle',v:280}, sunthistle:{n:'Sunthistle',v:640},
+  grimy_frostvein:{n:'Grimy frostvein',v:600}, frostvein:{n:'Frostvein',v:1400},
+  grimy_starbloom:{n:'Grimy starbloom',v:1400}, starbloom:{n:'Starbloom',v:3200},
+  seed_bitterleaf:{n:'Bitterleaf seed',v:30}, seed_marshroot:{n:'Marshroot seed',v:90},
+  seed_emberwort:{n:'Emberwort seed',v:220}, seed_sunthistle:{n:'Sunthistle seed',v:520},
+  seed_frostvein:{n:'Frostvein seed',v:1200}, seed_starbloom:{n:'Starbloom seed',v:2800},
+  attack_potion:{n:'Attack potion',v:180,buff:{acc:8},ms:360000},
+  strength_potion:{n:'Strength potion',v:340,buff:{str:6},ms:360000},
+  defence_potion:{n:'Defence potion',v:520,buff:{def:10},ms:360000},
+  combat_potion:{n:'Combat potion',v:1400,buff:{str:8,def:12,acc:8},ms:480000},
+  super_potion:{n:'Super potion',v:4200,buff:{str:16,def:22,acc:12},ms:600000},
+  sapphire:{n:'Sapphire',v:300}, emerald:{n:'Emerald',v:700}, ruby:{n:'Ruby',v:1800}, diamond:{n:'Diamond',v:4500},
+};
+const EQ={
+  bronze_sword:{n:'Bronze sword',v:120,slot:'weapon',str:3,spd:2400},
+  iron_sword:{n:'Iron sword',v:300,slot:'weapon',str:7,spd:2400},
+  steel_sword:{n:'Steel sword',v:850,slot:'weapon',str:13,spd:2300},
+  cobalt_sword:{n:'Cobalt sword',v:2400,slot:'weapon',str:22,spd:2200},
+  adamant_sword:{n:'Adamant sword',v:5800,slot:'weapon',str:33,spd:2100},
+  starsteel_sword:{n:'Starsteel sword',v:15000,slot:'weapon',str:48,spd:2000},
+  bronze_kite:{n:'Bronze kiteshield',v:150,slot:'shield',def:5},
+  iron_kite:{n:'Iron kiteshield',v:380,slot:'shield',def:11},
+  steel_kite:{n:'Steel kiteshield',v:1100,slot:'shield',def:20},
+  cobalt_kite:{n:'Cobalt kiteshield',v:3000,slot:'shield',def:34},
+  adamant_kite:{n:'Adamant kiteshield',v:7200,slot:'shield',def:52},
+  starsteel_kite:{n:'Starsteel kiteshield',v:18000,slot:'shield',def:74},
+  bronze_plate:{n:'Bronze platebody',v:200,slot:'body',def:8},
+  iron_plate:{n:'Iron platebody',v:500,slot:'body',def:17},
+  steel_plate:{n:'Steel platebody',v:1400,slot:'body',def:30},
+  cobalt_plate:{n:'Cobalt platebody',v:3900,slot:'body',def:50},
+  adamant_plate:{n:'Adamant platebody',v:9200,slot:'body',def:76},
+  starsteel_plate:{n:'Starsteel platebody',v:24000,slot:'body',def:108},
+  leather_coif:{n:'Leather coif',v:190,slot:'head',def:4},
+  hard_coif:{n:'Hard leather coif',v:520,slot:'head',def:10},
+  studded_coif:{n:'Studded coif',v:1600,slot:'head',def:19},
+  sapphire_amulet:{n:'Sapphire amulet',v:700,slot:'amulet',def:3,str:2},
+  emerald_amulet:{n:'Emerald amulet',v:1500,slot:'amulet',def:6,str:4},
+  ruby_amulet:{n:'Ruby amulet',v:3800,slot:'amulet',def:9,str:8},
+  diamond_amulet:{n:'Diamond amulet',v:9000,slot:'amulet',def:14,str:13},
+  oak_bow:{n:'Oak shortbow',v:260,slot:'weapon',type:'ranged',str:2,spd:2200},
+  willow_bow:{n:'Willow shortbow',v:700,slot:'weapon',type:'ranged',str:5,spd:2100},
+  maple_bow:{n:'Maple shortbow',v:1900,slot:'weapon',type:'ranged',str:9,spd:2000},
+  yew_bow:{n:'Yew longbow',v:5200,slot:'weapon',type:'ranged',str:15,spd:1950},
+  elder_bow:{n:'Elder longbow',v:14000,slot:'weapon',type:'ranged',str:23,spd:1900},
+  ember_staff:{n:'Ember staff',v:600,slot:'weapon',type:'magic',str:3,spd:2300},
+  frost_staff:{n:'Frost staff',v:1900,slot:'weapon',type:'magic',str:8,spd:2200},
+  storm_staff:{n:'Storm staff',v:5400,slot:'weapon',type:'magic',str:15,spd:2100},
+  void_staff:{n:'Void staff',v:16000,slot:'weapon',type:'magic',str:24,spd:2000},
+  ring_vigour:{n:'Ring of Vigour',v:26000,slot:'ring',str:6},
+  ring_warding:{n:'Ring of Warding',v:34000,slot:'ring',def:18},
+  ring_fortune:{n:'Ring of Fortune',v:60000,slot:'ring',def:4,gold:.25},
+  warden_blade:{n:"Warden's blade",v:30000,slot:'weapon',str:40,spd:1800},
+  tyrant_plate:{n:'Tyrant platebody',v:48000,slot:'body',def:96},
+  hollow_crown:{n:'Crown of Hollowmere',v:120000,slot:'head',def:34,str:12},
+};
+const CAPES={};
+for(const k of ['woodcutting','mining','fishing','firemaking','cooking','smithing','thieving','crafting','prayer','slayer','attack','strength','defence','hitpoints']){
+  CAPES[k+'_cape']={n:cap0(k)+' cape',v:99000,slot:'body',def:12,str:4};
+}
+function cap0(s){return s[0].toUpperCase()+s.slice(1);}
+Object.assign(EQ,CAPES);
+function item(id){return I[id]||EQ[id]||{n:id,v:0};}
+const SLOTS=['weapon','shield','head','body','amulet','ring'];
+
+/* ============================================================
+   ACTIONS
+   ============================================================ */
+const g=(id,n,lvl,xp,dur,out,rare)=>({id,n,lvl,xp,dur,out:{[out]:1},rare});
+const SKILLS={
+  woodcutting:{n:'Woodcutting',tool:'axe',acts:[
+    g('t1','Pine tree',1,25,6000,'pine_logs'), g('t2','Oak tree',15,38,7600,'oak_logs'),
+    g('t3','Willow tree',30,68,9600,'willow_logs'), g('t4','Maple tree',45,100,12000,'maple_logs'),
+    g('t5','Yew tree',60,175,16000,'yew_logs'), g('t6','Elder tree',75,250,20000,'elder_logs'),
+  ]},
+  mining:{n:'Mining',tool:'pick',acts:[
+    g('m1','Copper vein',1,18,6000,'copper_ore'), g('m2','Tin vein',1,18,6000,'tin_ore'),
+    g('m3','Iron vein',15,35,7600,'iron_ore',{id:'uncut_sapphire',c:.012}),
+    g('m4','Coal seam',30,50,10000,'coal',{id:'uncut_emerald',c:.010}),
+    g('m5','Cobalt vein',50,80,13000,'cobalt_ore',{id:'uncut_ruby',c:.009}),
+    g('m6','Adamant vein',70,140,17000,'adamant_ore',{id:'uncut_diamond',c:.008}),
+    g('m7','Starsteel vein',85,240,22000,'starsteel_ore',{id:'uncut_diamond',c:.02}),
+  ]},
+  fishing:{n:'Fishing',tool:'rod',acts:[
+    g('f1','Net minnows',1,20,6400,'raw_minnow'), g('f2','Bait trout',20,45,8400,'raw_trout'),
+    g('f3','Cage perch',40,80,11000,'raw_perch'), g('f4','Harpoon sturgeon',55,130,14000,'raw_sturgeon'),
+    g('f5','Harpoon shark',76,220,19000,'raw_shark'),
+  ]},
+  firemaking:{n:'Firemaking',acts:[
+    {id:'b1',n:'Burn pine',lvl:1,xp:40,dur:4800,in:{pine_logs:1}},
+    {id:'b2',n:'Burn oak',lvl:15,xp:60,dur:4800,in:{oak_logs:1}},
+    {id:'b3',n:'Burn willow',lvl:30,xp:90,dur:4800,in:{willow_logs:1}},
+    {id:'b4',n:'Burn maple',lvl:45,xp:135,dur:4800,in:{maple_logs:1}},
+    {id:'b5',n:'Burn yew',lvl:60,xp:203,dur:4800,in:{yew_logs:1}},
+    {id:'b6',n:'Burn elder',lvl:75,xp:304,dur:4800,in:{elder_logs:1}},
+  ]},
+  cooking:{n:'Cooking',acts:[
+    {id:'c1',n:'Cook minnow',lvl:1,xp:30,dur:4400,in:{raw_minnow:1},out:{minnow:1}},
+    {id:'c2',n:'Cook trout',lvl:20,xp:70,dur:4400,in:{raw_trout:1},out:{trout:1}},
+    {id:'c3',n:'Cook perch',lvl:40,xp:120,dur:4400,in:{raw_perch:1},out:{perch:1}},
+    {id:'c4',n:'Cook sturgeon',lvl:55,xp:190,dur:4400,in:{raw_sturgeon:1},out:{sturgeon:1}},
+    {id:'c5',n:'Cook shark',lvl:76,xp:300,dur:4400,in:{raw_shark:1},out:{shark:1}},
+  ]},
+  smithing:{n:'Smithing',acts:[
+    {sub:'Smelting'},
+    {id:'s1',n:'Smelt bronze',lvl:1,xp:24,dur:6000,in:{copper_ore:1,tin_ore:1},out:{bronze_bar:1}},
+    {id:'s2',n:'Smelt iron',lvl:15,xp:44,dur:6000,in:{iron_ore:1},out:{iron_bar:1}},
+    {id:'s3',n:'Smelt steel',lvl:30,xp:70,dur:6800,in:{iron_ore:1,coal:2},out:{steel_bar:1}},
+    {id:'s4',n:'Smelt cobalt',lvl:50,xp:120,dur:8000,in:{cobalt_ore:1,coal:4},out:{cobalt_bar:1}},
+    {id:'s5',n:'Smelt adamant',lvl:70,xp:190,dur:9200,in:{adamant_ore:1,coal:6},out:{adamant_bar:1}},
+    {id:'s6',n:'Smelt starsteel',lvl:85,xp:300,dur:10400,in:{starsteel_ore:1,coal:8},out:{starsteel_bar:1}},
+    {sub:'Forging — weapons'},
+    {id:'w1',n:'Bronze sword',lvl:5,xp:60,dur:8000,in:{bronze_bar:3},out:{bronze_sword:1}},
+    {id:'w2',n:'Iron sword',lvl:20,xp:110,dur:8000,in:{iron_bar:3},out:{iron_sword:1}},
+    {id:'w3',n:'Steel sword',lvl:35,xp:180,dur:8800,in:{steel_bar:3},out:{steel_sword:1}},
+    {id:'w4',n:'Cobalt sword',lvl:55,xp:290,dur:10000,in:{cobalt_bar:3},out:{cobalt_sword:1}},
+    {id:'w5',n:'Adamant sword',lvl:75,xp:450,dur:11200,in:{adamant_bar:3},out:{adamant_sword:1}},
+    {id:'w6',n:'Starsteel sword',lvl:90,xp:700,dur:12400,in:{starsteel_bar:3},out:{starsteel_sword:1}},
+    {sub:'Forging — armour'},
+    {id:'k1',n:'Bronze kiteshield',lvl:6,xp:80,dur:8400,in:{bronze_bar:4},out:{bronze_kite:1}},
+    {id:'k2',n:'Iron kiteshield',lvl:21,xp:150,dur:8400,in:{iron_bar:4},out:{iron_kite:1}},
+    {id:'k3',n:'Steel kiteshield',lvl:36,xp:240,dur:9200,in:{steel_bar:4},out:{steel_kite:1}},
+    {id:'k4',n:'Cobalt kiteshield',lvl:56,xp:390,dur:10400,in:{cobalt_bar:4},out:{cobalt_kite:1}},
+    {id:'k5',n:'Adamant kiteshield',lvl:76,xp:600,dur:11600,in:{adamant_bar:4},out:{adamant_kite:1}},
+    {id:'k6',n:'Starsteel kiteshield',lvl:91,xp:930,dur:12800,in:{starsteel_bar:4},out:{starsteel_kite:1}},
+    {id:'a1',n:'Bronze platebody',lvl:8,xp:100,dur:9200,in:{bronze_bar:5},out:{bronze_plate:1}},
+    {id:'a2',n:'Iron platebody',lvl:23,xp:185,dur:9200,in:{iron_bar:5},out:{iron_plate:1}},
+    {id:'a3',n:'Steel platebody',lvl:38,xp:300,dur:10000,in:{steel_bar:5},out:{steel_plate:1}},
+    {id:'a4',n:'Cobalt platebody',lvl:58,xp:480,dur:11200,in:{cobalt_bar:5},out:{cobalt_plate:1}},
+    {id:'a5',n:'Adamant platebody',lvl:78,xp:750,dur:12400,in:{adamant_bar:5},out:{adamant_plate:1}},
+    {id:'a6',n:'Starsteel platebody',lvl:92,xp:1150,dur:14000,in:{starsteel_bar:5},out:{starsteel_plate:1}},
+  ]},
+  thieving:{n:'Thieving',acts:[
+    {id:'p1',n:'Fruit stall',lvl:1,xp:22,dur:5000,gp:[4,14],fail:.30,stun:4000},
+    {id:'p2',n:'Silk stall',lvl:20,xp:55,dur:5600,gp:[18,45],fail:.28,stun:5000,out:{silk:1}},
+    {id:'p3',n:'Gem stall',lvl:40,xp:110,dur:6400,gp:[50,130],fail:.26,stun:6000,rare:{id:'uncut_sapphire',c:.05}},
+    {id:'p4',n:'Pickpocket noble',lvl:55,xp:190,dur:7200,gp:[130,320],fail:.24,stun:7000,rare:{id:'uncut_ruby',c:.03}},
+    {id:'p5',n:'Rob the vault',lvl:75,xp:340,dur:8800,gp:[400,1000],fail:.22,stun:9000,rare:{id:'uncut_diamond',c:.04}},
+  ]},
+  crafting:{n:'Crafting',acts:[
+    {sub:'Leatherwork'},
+    {id:'r1',n:'Tan wolf pelt',lvl:1,xp:30,dur:5000,in:{pelt:1},out:{leather:1}},
+    {id:'r2',n:'Leather coif',lvl:7,xp:70,dur:6000,in:{leather:2},out:{leather_coif:1}},
+    {id:'r3',n:'Cure hard leather',lvl:28,xp:130,dur:6400,in:{leather:2},out:{hard_leather:1}},
+    {id:'r4',n:'Hard leather coif',lvl:33,xp:210,dur:7200,in:{hard_leather:2},out:{hard_coif:1}},
+    {id:'r5',n:'Studded coif',lvl:48,xp:360,dur:8000,in:{hard_leather:2,steel_bar:1},out:{studded_coif:1}},
+    {sub:'Gemcutting'},
+    {id:'j1',n:'Cut sapphire',lvl:20,xp:80,dur:5000,in:{uncut_sapphire:1},out:{sapphire:1}},
+    {id:'j2',n:'Cut emerald',lvl:27,xp:140,dur:5400,in:{uncut_emerald:1},out:{emerald:1}},
+    {id:'j3',n:'Cut ruby',lvl:34,xp:230,dur:5800,in:{uncut_ruby:1},out:{ruby:1}},
+    {id:'j4',n:'Cut diamond',lvl:43,xp:380,dur:6400,in:{uncut_diamond:1},out:{diamond:1}},
+    {id:'j5',n:'Sapphire amulet',lvl:24,xp:160,dur:7000,in:{sapphire:1,silk:1},out:{sapphire_amulet:1}},
+    {id:'j6',n:'Emerald amulet',lvl:31,xp:270,dur:7400,in:{emerald:1,silk:1},out:{emerald_amulet:1}},
+    {id:'j7',n:'Ruby amulet',lvl:50,xp:450,dur:8000,in:{ruby:1,silk:1},out:{ruby_amulet:1}},
+    {id:'j8',n:'Diamond amulet',lvl:70,xp:760,dur:8800,in:{diamond:1,silk:1},out:{diamond_amulet:1}},
+  ]},
+  fletching:{n:'Fletching',acts:[
+    {sub:'Bows'},
+    {id:'n1',n:'Oak shortbow',lvl:5,xp:70,dur:6000,in:{oak_logs:2},out:{oak_bow:1}},
+    {id:'n2',n:'Willow shortbow',lvl:22,xp:140,dur:6400,in:{willow_logs:2},out:{willow_bow:1}},
+    {id:'n3',n:'Maple shortbow',lvl:40,xp:250,dur:7000,in:{maple_logs:2},out:{maple_bow:1}},
+    {id:'n4',n:'Yew longbow',lvl:60,xp:420,dur:7600,in:{yew_logs:3},out:{yew_bow:1}},
+    {id:'n5',n:'Elder longbow',lvl:80,xp:700,dur:8400,in:{elder_logs:3},out:{elder_bow:1}},
+    {sub:'Arrows — 15 per batch'},
+    {id:'o1',n:'Bronze arrows',lvl:1,xp:40,dur:4000,in:{pine_logs:1,feather:15,bronze_bar:1},out:{bronze_arrow:15}},
+    {id:'o2',n:'Iron arrows',lvl:15,xp:75,dur:4000,in:{pine_logs:1,feather:15,iron_bar:1},out:{iron_arrow:15}},
+    {id:'o3',n:'Steel arrows',lvl:30,xp:130,dur:4400,in:{oak_logs:1,feather:15,steel_bar:1},out:{steel_arrow:15}},
+    {id:'o4',n:'Cobalt arrows',lvl:50,xp:220,dur:4800,in:{willow_logs:1,feather:15,cobalt_bar:1},out:{cobalt_arrow:15}},
+    {id:'o5',n:'Adamant arrows',lvl:70,xp:360,dur:5200,in:{maple_logs:1,feather:15,adamant_bar:1},out:{adamant_arrow:15}},
+    {id:'o6',n:'Starsteel arrows',lvl:88,xp:580,dur:5600,in:{yew_logs:1,feather:15,starsteel_bar:1},out:{starsteel_arrow:15}},
+    {sub:'Staves'},
+    {id:'v1',n:'Ember staff',lvl:12,xp:120,dur:6400,in:{oak_logs:3,sapphire:1},out:{ember_staff:1}},
+    {id:'v2',n:'Frost staff',lvl:34,xp:240,dur:7000,in:{willow_logs:3,emerald:1},out:{frost_staff:1}},
+    {id:'v3',n:'Storm staff',lvl:56,xp:420,dur:7600,in:{maple_logs:3,ruby:1},out:{storm_staff:1}},
+    {id:'v4',n:'Void staff',lvl:78,xp:720,dur:8400,in:{yew_logs:3,diamond:1},out:{void_staff:1}},
+  ]},
+  runecrafting:{n:'Runecrafting',acts:[
+    {id:'u1',n:'Ember runes ×10',lvl:1,xp:60,dur:4200,in:{rune_essence:10},out:{ember_rune:10}},
+    {id:'u2',n:'Frost runes ×10',lvl:25,xp:130,dur:4600,in:{rune_essence:10,coal:1},out:{frost_rune:10}},
+    {id:'u3',n:'Storm runes ×10',lvl:50,xp:250,dur:5200,in:{rune_essence:10,cobalt_ore:1},out:{storm_rune:10}},
+    {id:'u4',n:'Void runes ×10',lvl:75,xp:460,dur:5800,in:{rune_essence:10,starsteel_ore:1},out:{void_rune:10}},
+  ]},
+  herblore:{n:'Herblore',acts:[
+    {sub:'Cleaning'},
+    {id:'h1',n:'Clean bitterleaf',lvl:1,xp:25,dur:2400,in:{grimy_bitterleaf:1},out:{bitterleaf:1}},
+    {id:'h2',n:'Clean marshroot',lvl:14,xp:45,dur:2400,in:{grimy_marshroot:1},out:{marshroot:1}},
+    {id:'h3',n:'Clean emberwort',lvl:28,xp:80,dur:2400,in:{grimy_emberwort:1},out:{emberwort:1}},
+    {id:'h4',n:'Clean sunthistle',lvl:42,xp:140,dur:2400,in:{grimy_sunthistle:1},out:{sunthistle:1}},
+    {id:'h5',n:'Clean frostvein',lvl:60,xp:240,dur:2400,in:{grimy_frostvein:1},out:{frostvein:1}},
+    {id:'h6',n:'Clean starbloom',lvl:78,xp:420,dur:2400,in:{grimy_starbloom:1},out:{starbloom:1}},
+    {sub:'Mixing'},
+    {id:'x1',n:'Attack potion',lvl:5,xp:90,dur:5200,in:{bitterleaf:1,vial:1,newt_eye:1},out:{attack_potion:1}},
+    {id:'x2',n:'Strength potion',lvl:18,xp:160,dur:5200,in:{marshroot:1,vial:1,goblin_ash:1},out:{strength_potion:1}},
+    {id:'x3',n:'Defence potion',lvl:32,xp:280,dur:5600,in:{emberwort:1,vial:1,goblin_ash:2},out:{defence_potion:1}},
+    {id:'x4',n:'Combat potion',lvl:48,xp:480,dur:6400,in:{sunthistle:1,vial:1,troll_fat:1},out:{combat_potion:1}},
+    {id:'x5',n:'Super potion',lvl:70,xp:820,dur:7200,in:{frostvein:1,starbloom:1,vial:1,wraith_dust:1},out:{super_potion:1}},
+  ]},
+  prayer:{n:'Prayer',acts:[
+    {id:'y1',n:'Bury bones',lvl:1,xp:45,dur:2600,in:{bones:1}},
+    {id:'y2',n:'Bury big bones',lvl:1,xp:150,dur:2600,in:{big_bones:1}},
+  ]},
+};
+const CROPS=[
+  {id:'bitterleaf',n:'Bitterleaf',lvl:1,seed:'seed_bitterleaf',out:'grimy_bitterleaf',ms:8*60000,plant:14,harv:35,yield:[2,4]},
+  {id:'marshroot',n:'Marshroot',lvl:14,seed:'seed_marshroot',out:'grimy_marshroot',ms:14*60000,plant:28,harv:75,yield:[2,5]},
+  {id:'emberwort',n:'Emberwort',lvl:28,seed:'seed_emberwort',out:'grimy_emberwort',ms:22*60000,plant:52,harv:145,yield:[3,6]},
+  {id:'sunthistle',n:'Sunthistle',lvl:42,seed:'seed_sunthistle',out:'grimy_sunthistle',ms:34*60000,plant:95,harv:270,yield:[3,7]},
+  {id:'frostvein',n:'Frostvein',lvl:60,seed:'seed_frostvein',out:'grimy_frostvein',ms:50*60000,plant:170,harv:500,yield:[4,8]},
+  {id:'starbloom',n:'Starbloom',lvl:78,seed:'seed_starbloom',out:'grimy_starbloom',ms:75*60000,plant:300,harv:900,yield:[4,9]},
+];
+const BOSSES=[
+  {id:'wdn',weak:'magic',n:'The Sunken Warden',boss:1,req:40,lvl:55,hp:420,max:22,spd:2600,xp:1400,gp:[900,2200],
+   drop:{big_bones:2,wraith_dust:1},unique:{id:'warden_blade',c:.28}},
+  {id:'tyr',weak:'ranged',n:'Molten Tyrant',boss:1,req:60,lvl:78,hp:820,max:32,spd:2400,xp:3200,gp:[2500,6000],
+   drop:{big_bones:3,troll_fat:2},unique:{id:'tyrant_plate',c:.22}},
+  {id:'hlk',weak:'melee',n:'The Hollow King',boss:1,req:80,lvl:99,hp:1600,max:44,spd:2200,xp:7500,gp:[7000,16000],
+   drop:{shard:2,wraith_dust:3},unique:{id:'hollow_crown',c:.16}},
+];
+const DUNGEONS=[
+  {id:'vault',n:'The Sunken Vaults',req:30,floors:5,weak:'ranged',
+   tmpl:{lvl:26,hp:48,max:9,spd:2700,xp:130,gp:[40,110],drop:{bones:1,newt_eye:1}},step:.30,
+   bonusXp:1000,bonusGp:1000,ring:'ring_vigour',ringC:.20},
+  {id:'ember',n:'Emberdeep',req:50,floors:7,weak:'magic',
+   tmpl:{lvl:46,hp:105,max:16,spd:2900,xp:310,gp:[130,330],drop:{big_bones:1,troll_fat:1}},step:.28,
+   bonusXp:5800,bonusGp:6500,ring:'ring_warding',ringC:.17},
+  {id:'spire',n:'The Hollow Spire',req:70,floors:10,weak:'melee',
+   tmpl:{lvl:68,hp:210,max:22,spd:2600,xp:700,gp:[320,820],drop:{wraith_dust:1,big_bones:2}},step:.26,
+   bonusXp:30000,bonusGp:32000,ring:'ring_fortune',ringC:.14},
+];
+function delveFoe(d,floor){
+  const t=d.tmpl;
+  const m =1+floor*d.step;          // health and reward scale fully
+  const md=1+floor*d.step*0.45;     // damage scales far slower — deep floors stay survivable
+  const ml=1+floor*d.step*0.55;     // level scales in between
+  return{id:d.id+'#'+floor,delve:1,n:`${d.n} · floor ${floor+1}/${d.floors}`,weak:d.weak,
+    lvl:Math.round(t.lvl*ml),hp:Math.round(t.hp*m),max:Math.round(t.max*md),spd:t.spd,
+    xp:Math.round(t.xp*m),gp:[Math.round(t.gp[0]*m),Math.round(t.gp[1]*m)],drop:t.drop};
+}
+const ROOMS=[
+  {id:'altar',n:'Shrine',desc:t=>`+${t*15}% Prayer xp`,cost:t=>({gp:4000*t*t,oak_logs:40*t,iron_bar:15*t})},
+  {id:'workshop',n:'Workshop',desc:t=>`Smithing, Crafting and Fletching ${t*7}% faster`,cost:t=>({gp:9000*t*t,willow_logs:50*t,steel_bar:20*t})},
+  {id:'garden',n:'Garden',desc:t=>`+${t} farm patch${t>1?'es':''}`,cost:t=>({gp:12000*t*t,maple_logs:40*t,vial:30*t})},
+  {id:'kitchen',n:'Kitchen',desc:t=>`Food heals ${t*25}% more`,cost:t=>({gp:6000*t*t,oak_logs:60*t,bronze_bar:25*t})},
+  {id:'storeroom',n:'Storeroom',desc:t=>`+${t*400} bank space`,cost:t=>({gp:15000*t*t,maple_logs:80*t,steel_bar:30*t})},
+  {id:'trophy',n:'Trophy hall',desc:t=>`+${t*7}% gold from every source`,cost:t=>({gp:25000*t*t,yew_logs:50*t,cobalt_bar:20*t})},
+];
+const PETS={
+  woodcutting:'Beaver', mining:'Rock golem', fishing:'Heron', firemaking:'Phoenix chick',
+  cooking:'Ladle imp', smithing:'Forge sprite', thieving:'Shadow cat', crafting:'Loom spider',
+  herblore:'Mortar toad', fletching:'Whittled owl', runecrafting:'Rift moth', prayer:'Grave lamb',
+  farming:'Seedling', combat:'Baby wyrm',
+};
+const PET_DENOM=42000000;   // chance per action = duration_ms / this
+const GE_TICK=5*60000;
+const GE_SLOTS=4;
+const BUYABLE=['coal','iron_ore','copper_ore','tin_ore','pine_logs','oak_logs','willow_logs',
+  'feather','vial','rune_essence','bronze_bar','iron_bar','steel_bar'];
+const BANK_TIERS=[400,800,1600,3200,6400];
+const BANK_COST=[0,3000,15000,70000,300000];
+const COMBAT_SKILLS=['attack','strength','defence','hitpoints','ranged','magic','slayer','farming'];
+const ALL_SKILLS=[...COMBAT_SKILLS,...Object.keys(SKILLS)];
+
+const FOES=[
+  {id:'rat',weak:'melee',n:'Giant rat',lvl:2,hp:8,max:2,spd:3000,xp:14,gp:[1,4],drop:{bones:1,newt_eye:1}},
+  {id:'gob',weak:'ranged',n:'Goblin',lvl:8,hp:18,max:4,spd:2900,xp:36,gp:[5,18],drop:{bones:1,goblin_ash:1}},
+  {id:'ban',weak:'magic',n:'Bandit',lvl:18,hp:34,max:7,spd:2800,xp:80,gp:[25,70],drop:{bones:1}},
+  {id:'wlf',weak:'ranged',n:'Dire wolf',lvl:30,hp:56,max:10,spd:2500,xp:150,gp:[50,120],drop:{pelt:1,bones:1}},
+  {id:'trl',weak:'magic',n:'Cave troll',lvl:48,hp:110,max:16,spd:3200,xp:320,gp:[120,300],drop:{big_bones:1,troll_fat:1}},
+  {id:'wra',weak:'ranged',n:'Barrow wraith',lvl:70,hp:190,max:24,spd:2700,xp:640,gp:[280,700],drop:{shard:1,big_bones:1,wraith_dust:1}},
+];
+
+const STOCK=[
+  {id:'vial',cost:20},{id:'feather',cost:6},{id:'seed_bitterleaf',cost:60},{id:'seed_marshroot',cost:180},
+  {id:'seed_emberwort',cost:440},{id:'seed_sunthistle',cost:1040},
+  {id:'seed_frostvein',cost:2400},{id:'seed_starbloom',cost:5600},
+];
+const TOOLS={
+  axe:[{n:'Stone axe',mul:1,cost:0},{n:'Iron axe',mul:.85,cost:400},{n:'Steel axe',mul:.72,cost:2200},{n:'Cobalt axe',mul:.6,cost:11000},{n:'Starsteel axe',mul:.5,cost:60000}],
+  pick:[{n:'Stone pick',mul:1,cost:0},{n:'Iron pick',mul:.85,cost:400},{n:'Steel pick',mul:.72,cost:2200},{n:'Cobalt pick',mul:.6,cost:11000},{n:'Starsteel pick',mul:.5,cost:60000}],
+  rod:[{n:'Reed rod',mul:1,cost:0},{n:'Oak rod',mul:.85,cost:400},{n:'Barbed rod',mul:.72,cost:2200},{n:'Runed rod',mul:.6,cost:11000},{n:'Leviathan rod',mul:.5,cost:60000}],
+};
+
+/* ============================================================
+   QUESTS
+   ============================================================ */
+const QUESTS=[
+  {id:'q1',n:"The Baker's Errand",blurb:'The baker wants firewood and a hot meal.',
+   need:{items:{pine_logs:10,trout:1}},reward:{xp:{cooking:400,firemaking:300},gp:250}},
+  {id:'q2',n:'Rat Problem',blurb:'Something is in the grain store.',
+   need:{kills:{rat:15}},reward:{xp:{attack:500,strength:500},items:{bronze_sword:1}}},
+  {id:'q3',n:'The Lost Pickaxe',blurb:'A miner dropped his tools down the shaft.',
+   need:{items:{iron_ore:30},lvl:{mining:20}},reward:{xp:{mining:1200},gp:800}},
+  {id:'q4',n:'Goblin Diplomacy',blurb:'Two goblin camps, one very thin peace.',
+   need:{kills:{gob:25},items:{silk:2}},reward:{xp:{thieving:900,defence:600},gp:1200}},
+  {id:'q5',n:'The Tanner’s Debt',blurb:'Wolves took the tanner’s stock. Take it back.',
+   need:{kills:{wlf:12},items:{leather:5}},reward:{xp:{crafting:2500},items:{emerald:2}}},
+  {id:'q6',n:'Rites of the Barrow',blurb:'The old rites need bones and a steady hand.',
+   need:{lvl:{prayer:30},items:{big_bones:20}},reward:{xp:{prayer:5000},gp:4000}},
+  {id:'q7',n:'The Hollow Crown',blurb:'Six shards, one crown, one very bad idea.',
+   need:{items:{shard:6},lvl:{attack:60,defence:60}},reward:{xp:{attack:12000,strength:12000,defence:12000},items:{diamond_amulet:1},gp:25000}},
+];
+
+/* ============================================================
+   STATE
+   ============================================================ */
+/* ------------------------------------------------------------------
+   Storage adapter. Inside Claude we use window.storage. Installed as a
+   PWA or opened as a plain file there is no such thing, so fall back to
+   localStorage, then to memory. localStorage is only probed when
+   window.storage is absent, so the artifact path never touches it.
+   ------------------------------------------------------------------ */
+const Store=(function(){
+  const mem={};
+  const artifact=(typeof window!=='undefined')&&window.storage&&typeof window.storage.get==='function';
+  let local=false;
+  if(!artifact){
+    try{localStorage.setItem('__hm_probe','1');localStorage.removeItem('__hm_probe');local=true;}
+    catch(e){local=false;}
+  }
+  return{
+    mode:artifact?'Claude':local?'this device':'memory only (nothing will persist)',
+    persistent:artifact||local,
+    async get(k){
+      if(artifact){try{const r=await window.storage.get(k);return r&&r.value!==undefined?r.value:null;}catch(e){return null;}}
+      if(local){try{return localStorage.getItem(k);}catch(e){return null;}}
+      return mem[k]!==undefined?mem[k]:null;
+    },
+    async set(k,v){
+      if(artifact){try{await window.storage.set(k,v);return true;}catch(e){return false;}}
+      if(local){try{localStorage.setItem(k,v);return true;}catch(e){return false;}}
+      mem[k]=v;return true;
+    },
+    async del(k){
+      if(artifact){try{await window.storage.delete(k);return true;}catch(e){return false;}}
+      if(local){try{localStorage.removeItem(k);return true;}catch(e){return false;}}
+      delete mem[k];return true;
+    },
+  };
+})();
+const SLOTS_N=3;
+const slotKey=i=>`hollowmere:slot:${i}`;
+const META='hollowmere:meta';
+const SAVE='hollowmere:save:v2';   // legacy single-slot key, imported once
+function fresh(){
+  const xp={};for(const k of ALL_SKILLS)xp[k]=0;
+  xp.hitpoints=XP[9];
+  return{xp,bank:{},gp:25,tools:{axe:0,pick:0,rod:0},
+    equip:{weapon:null,shield:null,head:null,body:null,amulet:null},
+    hp:10,act:null,prog:0,foe:null,foeHp:0,foeTimer:0,stun:0,
+    kills:{},quests:{},task:null,capes:{},log:[],
+    sess:{kills:0,gp:0,dealt:0,taken:0,eaten:0,deaths:0,swings:0,hits:0},
+    farm:[{crop:null,ms:0},{crop:null,ms:0},{crop:null,ms:0}],patches:3,
+    buffs:{},bankTier:0,bossKills:{},delve:null,
+    house:{altar:0,workshop:0,garden:0,kitchen:0,storeroom:0,trophy:0},
+    market:{},offers:[],geMs:0,pets:{},started:Date.now(),played:0,last:Date.now()};
+}
+let S;
+function lvl(s){return lvlFor(S.xp[s]||0);}
+function maxHp(){return lvl('hitpoints');}
+function gear(){
+  let str=0,def=0,spd=2800;
+  for(const sl of SLOTS){const id=S.equip[sl];if(!id||!EQ[id])continue;
+    const e=EQ[id];str+=e.str||0;def+=e.def||0;if(sl==='weapon'&&e.spd)spd=e.spd;}
+  return{str,def,spd};
+}
+function style(){
+  const id=S.equip.weapon;
+  return id&&EQ[id]&&EQ[id].type?EQ[id].type:'melee';
+}
+function ammoKind(st){return st==='ranged'?'arrow':st==='magic'?'rune':null;}
+function bestAmmo(st){
+  const kind=ammoKind(st);if(!kind)return null;
+  const opts=Object.keys(S.bank).filter(k=>I[k]&&I[k].ammo===kind&&S.bank[k]>0);
+  if(!opts.length)return null;
+  opts.sort((a,b)=>I[b].str-I[a].str);
+  return opts[0];
+}
+function styleLvl(st){return st==='ranged'?lvl('ranged'):st==='magic'?lvl('magic'):lvl('attack');}
+function powerLvl(st){return st==='ranged'?lvl('ranged'):st==='magic'?lvl('magic'):lvl('strength');}
+function maxHitFor(st,G,P,ammo){
+  const bonus=(ammo?I[ammo].str:0)+G.str+(st==='melee'?buffTotal('str'):0);
+  return 1+Math.floor((powerLvl(st)+bonus)/6)+P.hit;
+}
+function combatLvl(){return Math.floor((lvl('attack')+lvl('strength')+lvl('defence')+lvl('hitpoints'))/4);}
+function have(id){return S.bank[id]||0;}
+function marketMul(id){return (S.market&&S.market[id])||1;}
+function marketPrice(id){return Math.max(1,Math.round(item(id).v*marketMul(id)));}
+function driftMarket(){
+  if(!S.market)S.market={};
+  const ids=new Set([...Object.keys(S.bank),...Object.keys(S.market),
+    ...(S.offers||[]).map(o=>o.id),...BUYABLE]);
+  for(const id of ids){
+    if(!I[id]&&!EQ[id])continue;
+    let m=marketMul(id);
+    m+=(Math.random()-0.5)*0.09;
+    m+=(1-m)*0.06;                       // pulls back toward base value over time
+    S.market[id]=Math.min(1.6,Math.max(0.62,m));
+  }
+}
+function fillOffers(){
+  if(!S.offers)return;
+  for(const o of S.offers){
+    if(o.filled>=o.qty)continue;
+    const mkt=marketPrice(o.id);
+    const ratio=o.kind==='sell'?mkt/o.price:o.price/mkt;   // above 1 means your price is attractive
+    const speed=ratio>=1?0.28*Math.min(2.5,ratio):0.28*Math.pow(ratio,4);
+    const want=Math.floor(o.qty*speed*(0.6+Math.random()*0.8));
+    if(want<=0)continue;
+    const take=Math.min(want,o.qty-o.filled);
+    if(o.kind==='sell'){o.filled+=take;S.gp+=take*o.price;o.got=(o.got||0)+take*o.price;}
+    else{const g=add(o.id,take);o.filled+=g;o.got=(o.got||0)+g;if(g<take)break;}
+  }
+  const done=S.offers.filter(o=>o.filled>=o.qty);
+  if(done.length){
+    for(const o of done)pushLog(`${o.kind==='sell'?'Sold':'Bought'} ${fmt(o.qty)}× ${item(o.id).n}`,'loot');
+    if(gains)gains.trades=(gains.trades||0)+done.length;
+  }
+  S.offers=S.offers.filter(o=>o.filled<o.qty);
+}
+function geTick(dt){
+  S.geMs=(S.geMs||0)+dt;
+  let n=0;
+  while(S.geMs>=GE_TICK&&n++<400){S.geMs-=GE_TICK;driftMarket();fillOffers();}
+}
+function rollPet(key,dur){
+  const id=PETS[key]?key:'combat';
+  if(S.pets&&S.pets[id])return;
+  if(Math.random()<dur/PET_DENOM){
+    if(!S.pets)S.pets={};
+    S.pets[id]=1;
+    if(gains)gains.pets=(gains.pets||[]).concat(PETS[id]);
+    else{pushLog(`A ${PETS[id]} follows you home!`,'kill');toast(`Pet: ${PETS[id]}`);}
+  }
+}
+function room(id){return (S.house&&S.house[id])||0;}
+function ringGold(){const r=S.equip.ring;return r&&EQ[r]&&EQ[r].gold?EQ[r].gold:0;}
+function goldMul(){return 1+room('trophy')*0.07+ringGold();}
+function gainGp(n){const g=Math.round(n*goldMul());S.gp+=g;noteGp(g);return g;}
+function totalPatches(){return Math.min(8,(S.patches||3)+room('garden'));}
+function bankCap(){return BANK_TIERS[S.bankTier||0]+room('storeroom')*400;}
+function bankUsed(){let n=0;for(const k in S.bank)n+=S.bank[k];return n;}
+function bankFull(){return bankUsed()>=bankCap();}
+function add(id,n){
+  const room=bankCap()-bankUsed();
+  if(room<=0){pushLog(`Bank full — ${item(id).n} lost`,'miss');return 0;}
+  const got=Math.min(n,room);
+  S.bank[id]=(S.bank[id]||0)+got;
+  if(got<n)pushLog(`Bank full — ${n-got}× ${item(id).n} lost`,'miss');
+  return got;
+}
+function take(id,n){S.bank[id]=(S.bank[id]||0)-n;if(S.bank[id]<=0)delete S.bank[id];}
+function canPay(inp){if(!inp)return true;for(const k in inp)if(have(k)<inp[k])return false;return true;}
+
+function findAct(key){
+  if(!key)return null;
+  const[sk,id]=key.split(':');
+  if(sk==='fight')return{skill:'fight',foe:allFoes().find(f=>f.id===id)};
+  if(sk==='delve'){
+    const d=DUNGEONS.find(x=>x.id===id);if(!d)return null;
+    const fl=(S.delve&&S.delve.id===id)?S.delve.floor:0;
+    return{skill:'delve',d,foe:delveFoe(d,fl)};
+  }
+  const s=SKILLS[sk];if(!s)return null;
+  const a=s.acts.find(x=>x.id===id);if(!a)return null;
+  return{skill:sk,a};
+}
+const CRAFT_SKILLS=['smithing','crafting','fletching'];
+function actDur(sk,a){
+  const t=SKILLS[sk].tool;
+  let d=t?a.dur*TOOLS[t][S.tools[t]].mul:a.dur;
+  if(CRAFT_SKILLS.includes(sk))d*=(1-room('workshop')*0.07);
+  return Math.max(500,d);
+}
+
+/* ============================================================
+   ENGINE
+   ============================================================ */
+let gains=null;
+function grantXp(sk,amount){
+  if(!amount)return;
+  if(sk==='prayer')amount=Math.round(amount*(1+room('altar')*0.15));
+  const before=lvlFor(S.xp[sk]||0);
+  S.xp[sk]=Math.min(XP[98],(S.xp[sk]||0)+amount);
+  const after=lvlFor(S.xp[sk]);
+  if(gains)gains.xp[sk]=(gains.xp[sk]||0)+amount;
+  if(after>before){
+    if(after===99&&!S.capes[sk]){S.capes[sk]=1;add(sk+'_cape',1);
+      if(gains)gains.capes.push(sk);else toast(`${label(sk)} 99 — cape earned`);}
+    else if(!gains)toast(`${label(sk)} level ${after}`);
+  }
+}
+function label(k){return SKILLS[k]?SKILLS[k].n:cap0(k);}
+function noteItem(id,n){if(gains)gains.items[id]=(gains.items[id]||0)+n;}
+function noteGp(n){if(gains)gains.gp+=n;}
+
+const EVENTS=[
+  {t:'A travelling merchant tips you',gp:()=>150+Math.floor(Math.random()*400)},
+  {t:'You find a coin purse in the dirt',gp:()=>80+Math.floor(Math.random()*250)},
+  {t:'A stranger hands you a gem',item:'uncut_sapphire'},
+  {t:'You unearth an old cache',item:'uncut_emerald'},
+];
+function maybeEvent(){
+  if(Math.random()>=0.004)return;   // ~1 in 250 completed actions
+  const e=EVENTS[Math.floor(Math.random()*EVENTS.length)];
+  if(e.gp){const n=e.gp();S.gp+=n;noteGp(n);if(gains)gains.events++;else toast(`${e.t} — ${n} gp`);}
+  else{add(e.item,1);noteItem(e.item,1);if(gains)gains.events++;else toast(`${e.t} — ${item(e.item).n}`);}
+}
+
+function farmTick(dt){
+  if(!S.farm)return;
+  for(const p of S.farm)if(p.crop&&p.ms>0)p.ms=Math.max(0,p.ms-dt);
+}
+function buffTick(dt){
+  for(const k in S.buffs){S.buffs[k].ms-=dt;if(S.buffs[k].ms<=0)delete S.buffs[k];}
+}
+function buffTotal(k){return S.buffs[k]?S.buffs[k].amt:0;}
+function drinkIfNeeded(){
+  const pots=Object.keys(S.bank).filter(k=>I[k]&&I[k].buff&&S.bank[k]>0);
+  if(!pots.length)return;
+  pots.sort((a,b)=>I[b].v-I[a].v);           // strongest first
+  const best=pots[0],def=I[best];
+  for(const k in def.buff)if(buffTotal(k)>=def.buff[k])return;   // already as good or better
+  take(best,1);
+  for(const k in def.buff)S.buffs[k]={amt:def.buff[k],ms:def.ms};
+  pushLog(`Drank ${def.n} — ${Object.entries(def.buff).map(([k,v])=>'+'+v+' '+k).join(', ')} for ${Math.round(def.ms/60000)} min`,'eat');
+}
+
+function tick(dt){
+  S.played=(S.played||0)+dt;
+  farmTick(dt);buffTick(dt);geTick(dt);
+  if(S.stun>0){S.stun=Math.max(0,S.stun-dt);if(S.stun>0)return;}
+  const cur=findAct(S.act);
+  if(!cur)return;
+  if(cur.skill==='fight'||cur.skill==='delve'){fightTick(dt,cur.foe);return;}
+  const{skill,a}=cur;
+  if(lvl(skill)<a.lvl){S.act=null;return;}
+  S.prog+=dt;
+  const dur=actDur(skill,a);
+  let guard=0;
+  while(S.prog>=dur&&guard++<600){
+    if(!canPay(a.in)){S.prog=0;if(!gains)toast('Out of materials');S.act=null;return;}
+    if(a.out&&bankFull()){S.prog=0;if(!gains)toast('Bank is full');S.act=null;return;}
+    S.prog-=dur;
+    if(a.fail!==undefined&&Math.random()<a.fail){
+      grantXp(skill,Math.round(a.xp*0.15));
+      S.stun=a.stun;
+      if(gains)gains.fails=(gains.fails||0)+1;else pushLog('Caught — stunned');
+      return;
+    }
+    if(a.in)for(const k in a.in)take(k,a.in[k]);
+    if(a.out)for(const k in a.out){add(k,a.out[k]);noteItem(k,a.out[k]);}
+    if(a.gp)gainGp(a.gp[0]+Math.floor(Math.random()*(a.gp[1]-a.gp[0]+1)));
+    if(a.rare&&Math.random()<a.rare.c){add(a.rare.id,1);noteItem(a.rare.id,1);
+      if(!gains)toast(`Found ${item(a.rare.id).n}`);}
+    grantXp(skill,a.xp);
+    rollPet(skill,dur);
+    maybeEvent();
+  }
+}
+function pushLog(t,k){
+  if(gains)return;                       // never log during offline catch-up
+  const d=new Date();
+  const stamp=String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')+':'+String(d.getSeconds()).padStart(2,'0');
+  S.log.unshift({t,k:k||'hit',s:stamp});
+  if(S.log.length>80)S.log.pop();
+}
+function resetSess(){S.sess={kills:0,gp:0,dealt:0,taken:0,eaten:0,deaths:0,swings:0,hits:0};}
+
+function prayerBonus(){const p=lvl('prayer');return{hit:Math.floor(p/18),soak:Math.floor(p/12)};}
+function allFoes(){return FOES.concat(BOSSES);}
+
+function fightTick(dt,foe){
+  if(!foe)return;
+  if(S.foe!==foe.id){S.foe=foe.id;S.foeHp=foe.hp;S.prog=0;S.foeTimer=0;}
+  S.prog+=dt;S.foeTimer+=dt;
+  const G=gear(),P=prayerBonus();
+  drinkIfNeeded();
+  // Top up before swinging — walking into a fight at 10/90 hp should not be a death sentence.
+  let guardEat=0;
+  while(S.hp<maxHp()*0.5&&guardEat++<40){
+    const before=S.hp;autoEat();
+    if(S.hp===before)break;      // no food, or food that heals nothing
+  }
+  let st=style();
+  let guard=0;
+  while(S.prog>=G.spd&&guard++<600){
+    S.prog-=G.spd;
+    let ammo=null;
+    if(ammoKind(st)){
+      ammo=bestAmmo(st);
+      if(!ammo){                                   // out of ammo — swing bare-handed
+        if(!S.warnedAmmo){pushLog(`Out of ${ammoKind(st)}s — fighting unarmed`,'dead');S.warnedAmmo=1;}
+        st='melee';
+      }else{S.warnedAmmo=0;}
+    }
+    const match=foe.weak===st;
+    const tri=match?.12:(foe.weak?-.06:0);
+    const hitChance=Math.max(.25,Math.min(.95,.62+(styleLvl(st)-foe.lvl)*.012+buffTotal('acc')/100+tri));
+    S.sess.swings++;
+    if(ammo)take(ammo,1);
+    if(Math.random()<hitChance){
+      const maxHit=maxHitFor(st,G,P,ammo)+(match?2:0);
+      const roll=1+Math.floor(Math.random()*maxHit);
+      const dmg=Math.min(roll,S.foeHp);           // overkill earns nothing
+      S.foeHp-=dmg;
+      S.sess.hits++;S.sess.dealt+=dmg;
+      if(st==='melee'){grantXp('attack',Math.round(dmg*1.33));grantXp('strength',Math.round(dmg*1.33));}
+      else grantXp(st,Math.round(dmg*2.66));
+      grantXp('hitpoints',Math.round(dmg*0.45));
+      pushLog(`${st==='melee'?'You hit':st==='ranged'?'Your arrow hits':'Your spell hits'} <b>${dmg}</b> on ${foe.n}${match?' <span class="weak">(weak to '+st+')</span>':''}${roll>dmg?' (overkill '+(roll-dmg)+')':''} — ${Math.max(0,S.foeHp)} hp left`,'hit');
+      if(S.foeHp<=0){
+        grantXp('defence',foe.xp);
+        S.kills[foe.id]=(S.kills[foe.id]||0)+1;S.sess.kills++;
+        const gp=gainGp(foe.gp[0]+Math.floor(Math.random()*(foe.gp[1]-foe.gp[0]+1)));
+        S.sess.gp+=gp;
+        const drops=[];
+        for(const k in foe.drop){add(k,foe.drop[k]);noteItem(k,foe.drop[k]);drops.push(`${foe.drop[k]}× ${item(k).n}`);}
+        pushLog(`${foe.n} dies — kill ${S.kills[foe.id]}, +${foe.xp} defence xp`,'kill');
+        pushLog(`Loot: ${gp} gp${drops.length?', '+drops.join(', '):''}`,'loot');
+        if(foe.delve){
+          const d=DUNGEONS.find(x=>x.id===foe.id.split('#')[0]);
+          S.delve.floor++;
+          if(S.delve.floor>=d.floors){
+            grantXp('slayer',d.bonusXp);
+            const bg=gainGp(d.bonusGp);
+            if(Math.random()<d.ringC){add(d.ring,1);noteItem(d.ring,1);
+              pushLog(`${item(d.ring).n} drops!`,'kill');
+              if(gains)gains.uniques=(gains.uniques||0)+1;else toast(`${item(d.ring).n}!`);}
+            pushLog(`${d.n} cleared — ${fmt(d.bonusXp)} slayer xp, ${fmt(bg)} gp`,'task');
+            if(gains)gains.delves=(gains.delves||0)+1;else toast(`${d.n} cleared`);
+            S.delve=null;S.act=null;S.foe=null;S.foeHp=0;
+          }else pushLog(`Descending to floor ${S.delve.floor+1} of ${d.floors}`,'task');
+          return;
+        }
+        if(foe.boss){
+          S.bossKills[foe.id]=(S.bossKills[foe.id]||0)+1;
+          if(Math.random()<foe.unique.c){add(foe.unique.id,1);noteItem(foe.unique.id,1);
+            pushLog(`${item(foe.unique.id).n} drops!`,'kill');
+            if(gains)gains.uniques=(gains.uniques||0)+1;else toast(`${item(foe.unique.id).n}!`);}
+          else pushLog('No unique this time','miss');
+          S.act=null;S.foe=null;S.foeHp=0;
+          if(!gains)toast(`${foe.n} defeated — spend another sigil to re-enter`);
+          return;
+        }
+        if(S.task&&S.task.foe===foe.id&&S.task.done<S.task.need){
+          S.task.done++;
+          if(S.task.done>=S.task.need)finishTask();
+          else pushLog(`Slayer task ${S.task.done} / ${S.task.need}`,'task');
+        }
+        S.foeHp=foe.hp;
+        rollPet('combat',6000);
+        maybeEvent();
+      }
+    }else{
+      pushLog(`You miss ${foe.n}${(!match&&foe.weak)?' — it resists '+st:''}`,'miss');
+    }
+  }
+  guard=0;
+  while(S.foeTimer>=foe.spd&&guard++<600){
+    S.foeTimer-=foe.spd;
+    const raw=Math.floor(Math.random()*(foe.max+1));
+    const blocked=Math.floor((G.def+buffTotal('def'))/8)+P.soak;
+    let dmg=raw-blocked;
+    if(dmg>0){
+      S.hp-=dmg;S.sess.taken+=dmg;
+      pushLog(`${foe.n} hits <b>${dmg}</b>${blocked>0?` (armour absorbed ${Math.min(blocked,raw)})`:''} — ${Math.max(0,S.hp)} hp left`,'hurt');
+      // Order matters: a lethal blow kills outright. Eating must never revive you
+      // from below zero, or food makes you immortal.
+      if(S.hp<=0){
+        const lost=Math.floor(S.gp*.15);S.gp-=lost;S.hp=maxHp();S.act=null;S.foe=null;
+        S.sess.deaths++;
+        if(S.delve){pushLog(`Run ended on floor ${S.delve.floor+1} — completion bonus forfeit`,'dead');S.delve=null;}
+        if(gains)gains.died=true;else pushLog(`You died to ${foe.n}. Lost ${lost} gp.`,'dead');
+        return;
+      }
+      if(S.hp<=maxHp()*.45)autoEat();
+      // Retreat before a hit that COULD kill, not at a flat percentage — otherwise a
+      // hard-hitting foe jumps straight over the safety net.
+      const lethal=Math.max(1,foe.max-blocked);
+      if(S.hp<=Math.max(maxHp()*.30,lethal)&&!Object.keys(S.bank).some(k=>I[k]&&I[k].heal&&S.bank[k]>0)){
+        S.act=null;S.foe=null;
+        pushLog('Out of food — retreated before dying','dead');
+        if(gains)gains.retreated=true;else toast('Retreated — no food left');
+        if(S.delve)S.delve=null;
+        return;
+      }
+    }else if(raw>0){
+      pushLog(`${foe.n} attacks — armour absorbs it`,'miss');
+    }else{
+      pushLog(`${foe.n} misses`,'miss');
+    }
+  }
+}
+function autoEat(){
+  const foods=Object.keys(S.bank).filter(k=>I[k]&&I[k].heal);
+  if(!foods.length)return;
+  foods.sort((x,y)=>I[x].heal-I[y].heal);
+  const need=maxHp()-S.hp;
+  const pick=foods.find(f=>I[f].heal>=need)||foods[foods.length-1];
+  const before=S.hp;
+  const healed=Math.round(I[pick].heal*(1+room('kitchen')*0.25));
+  take(pick,1);S.hp=Math.min(maxHp(),S.hp+healed);S.sess.eaten++;
+  pushLog(`Ate ${I[pick].n} — healed ${S.hp-before} to ${S.hp} hp (${have(pick)} left)`,'eat');
+}
+
+/* ---- Slayer ---- */
+function rollTask(){
+  const cl=combatLvl();
+  const pool=FOES.filter(f=>f.lvl<=cl+8);
+  const foe=pool[Math.floor(Math.random()*pool.length)]||FOES[0];
+  const need=8+Math.floor(Math.random()*18);
+  S.task={foe:foe.id,need,done:0};
+  return S.task;
+}
+function finishTask(){
+  const foe=FOES.find(f=>f.id===S.task.foe);
+  const bonus=Math.round(foe.xp*S.task.need*0.9);
+  const gp=Math.round(foe.gp[1]*S.task.need*0.6);
+  grantXp('slayer',bonus);gainGp(gp);
+  if(gains)gains.tasks=(gains.tasks||0)+1;
+  else{pushLog(`Task complete — ${S.task.need}× ${foe.n} for ${fmt(bonus)} slayer xp and ${fmt(gp)} gp`,'task');
+    toast(`Task done — ${fmt(bonus)} slayer xp`);}
+  if(Math.random()<.35){add('boss_sigil',1);noteItem('boss_sigil',1);
+    if(!gains)pushLog('A boss sigil falls from the reward','loot');}
+  S.task=null;
+  rollTask();
+}
+
+/* ---- Quests ---- */
+function questState(q){
+  if(S.quests[q.id])return'done';
+  const n=q.need;
+  if(n.lvl)for(const k in n.lvl)if(lvl(k)<n.lvl[k])return'locked';
+  if(n.kills)for(const k in n.kills)if((S.kills[k]||0)<n.kills[k])return'locked';
+  if(n.items)for(const k in n.items)if(have(k)<n.items[k])return'locked';
+  return'ready';
+}
+function claimQuest(q){
+  if(questState(q)!=='ready')return;
+  if(q.need.items)for(const k in q.need.items)take(k,q.need.items[k]);
+  if(q.reward.xp)for(const k in q.reward.xp)grantXp(k,q.reward.xp[k]);
+  if(q.reward.items)for(const k in q.reward.items)add(k,q.reward.items[k]);
+  if(q.reward.gp)S.gp+=q.reward.gp;
+  S.quests[q.id]=1;
+  toast(`Quest complete — ${q.n}`);
+}
+function questsReady(){return QUESTS.some(q=>questState(q)==='ready');}
+
+/* ============================================================
+   OFFLINE
+   ============================================================ */
+const OFFLINE_CAP=12*3600*1000;
+function catchUp(){
+  const now=Date.now();
+  let elapsed=Math.min(now-(S.last||now),OFFLINE_CAP);
+  S.last=now;
+  if(elapsed<20000)return null;
+  const ripeBefore=S.farm.filter(p=>p.crop&&p.ms<=0).length;
+  gains={xp:{},items:{},gp:0,died:false,events:0,fails:0,tasks:0,capes:[],ms:elapsed};
+  const step=250;let guard=0;
+  while(elapsed>0&&S.act&&guard++<300000){const d=Math.min(step,elapsed);tick(d);elapsed-=d;}
+  // crops and potion timers keep running even with no skill set, or after one stops
+  if(elapsed>0){farmTick(elapsed);buffTick(elapsed);geTick(elapsed);}
+  gains.ripened=S.farm.filter(p=>p.crop&&p.ms<=0).length-ripeBefore;
+  const out=gains;gains=null;return out;
+}
+function showCatchUp(r){
+  if(!r)return;
+  const li=[];const hrs=r.ms/3600000;
+  li.push(`<li>Away ${hrs>=1?hrs.toFixed(1)+' hours':Math.round(r.ms/60000)+' minutes'}</li>`);
+  for(const k in r.xp)if(r.xp[k]>0)li.push(`<li>${label(k)} +${fmt(Math.round(r.xp[k]))} xp</li>`);
+  for(const k in r.items)li.push(`<li>${item(k).n} ×${fmt(r.items[k])}</li>`);
+  if(r.gp)li.push(`<li>${fmt(r.gp)} gp</li>`);
+  if(r.tasks)li.push(`<li>${r.tasks} slayer task${r.tasks>1?'s':''} finished</li>`);
+  if(r.ripened>0)li.push(`<li>${r.ripened} crop${r.ripened>1?'s':''} ready to harvest</li>`);
+  if(r.trades)li.push(`<li>${r.trades} market offer${r.trades>1?'s':''} completed</li>`);
+  for(const pn of (r.pets||[]))li.push(`<li><b>Pet found: ${pn}</b></li>`);
+  if(r.retreated)li.push(`<li>Retreated from combat — you ran out of food</li>`);
+  if(r.delves)li.push(`<li>${r.delves} dungeon${r.delves>1?'s':''} cleared</li>`);
+  if(r.uniques)li.push(`<li><b>${r.uniques} boss unique dropped</b></li>`);
+  if(r.events)li.push(`<li>${r.events} chance encounter${r.events>1?'s':''}</li>`);
+  for(const c of r.capes)li.push(`<li><b>${label(c)} 99 — cape earned</b></li>`);
+  if(r.died)li.push(`<li>You died at some point. Bring more food.</li>`);
+  if(li.length<2)return;
+  document.getElementById('wblist').innerHTML=li.join('');
+  document.getElementById('wb').classList.add('show');
+}
+
+/* ============================================================
+   PERSISTENCE
+   ============================================================ */
+let curSlot=1;
+let slotInfo=[null,null,null];
+
+function summarize(o){
+  try{
+    if(typeof o==='string')o=JSON.parse(o);
+    if(!o||!o.xp)return null;
+    let tl=0;for(const k of ALL_SKILLS)tl+=lvlFor(o.xp[k]||0);
+    return{lvl:tl,gp:o.gp||0,played:o.played||0,last:o.last||0,pets:Object.keys(o.pets||{}).length};
+  }catch(e){return null;}
+}
+async function save(){
+  S.last=Date.now();
+  const okw=await Store.set(slotKey(curSlot),JSON.stringify(S));
+  await Store.set(META,JSON.stringify({slot:curSlot}));
+  slotInfo[curSlot-1]=summarize(S);
+  if(!okw)console.error('save failed');
+  return okw;
+}
+async function refreshSlots(){
+  for(let i=1;i<=SLOTS_N;i++){
+    const raw=await Store.get(slotKey(i));
+    slotInfo[i-1]=raw?summarize(raw):null;
+  }
+}
+function adopt(p){
+  const f=fresh();
+  S=Object.assign(f,p);
+  S.xp=Object.assign(fresh().xp,p.xp||{});
+  S.equip=Object.assign(fresh().equip,p.equip||{});
+  S.sess=Object.assign(fresh().sess,p.sess||{});
+  S.house=Object.assign(fresh().house,p.house||{});
+  S.farm=Array.isArray(p.farm)?p.farm:f.farm;
+  S.offers=Array.isArray(p.offers)?p.offers:[];
+  S.market=p.market||{};S.pets=p.pets||{};
+  S.buffs=p.buffs||{};S.bossKills=p.bossKills||{};S.delve=p.delve||null;
+  S.patches=p.patches||3;S.bankTier=p.bankTier||0;
+  S.geMs=p.geMs||0;S.played=p.played||0;S.started=p.started||Date.now();
+  while(S.farm.length<totalPatches())S.farm.push({crop:null,ms:0});
+}
+async function loadSlot(i){
+  await save();                       // never lose the slot you are leaving
+  curSlot=i;
+  const raw=await Store.get(slotKey(i));
+  if(raw){try{adopt(JSON.parse(raw));}catch(e){S=fresh();}}
+  else S=fresh();
+  if(!S.task)rollTask();
+  await Store.set(META,JSON.stringify({slot:curSlot}));
+  await refreshSlots();
+  return true;
+}
+async function load(){
+  try{const m=await Store.get(META);if(m){const o=JSON.parse(m);
+    if(o&&o.slot>=1&&o.slot<=SLOTS_N)curSlot=o.slot;}}catch(e){}
+  const raw=await Store.get(slotKey(curSlot));
+  if(raw){try{adopt(JSON.parse(raw));await refreshSlots();return true;}catch(e){}}
+  try{                                // migrate a pre-slots save into slot 1
+    const legacy=await Store.get(SAVE);
+    if(legacy){const p=JSON.parse(legacy);
+      if(p&&p.xp){adopt(p);curSlot=1;await save();await refreshSlots();return true;}}
+  }catch(e){}
+  S=fresh();await refreshSlots();return false;
+}
+async function wipe(){
+  await Store.del(slotKey(curSlot));
+  S=fresh();rollTask();await refreshSlots();render();toast('Slot cleared');
+}
+
+/* ============================================================
+   RENDER
+   ============================================================ */
+let tab='train',openGroups=new Set();
+const $=id=>document.getElementById(id);
+const fmt=n=>n>=1e6?(n/1e6).toFixed(2)+'m':n>=1e4?Math.floor(n/1e3)+'k':String(Math.round(n));
+
+function toast(msg){const t=$('toast');t.textContent=msg;t.classList.add('show');
+  clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),1900);}
+
+function renderDoing(){
+  const el=$('doing');
+  if(S.stun>0){
+    el.innerHTML=`<div class="doing-row"><b>Stunned</b><em>${(S.stun/1000).toFixed(1)}s</em></div>
+      <div class="bar stun"><i style="width:100%"></i></div>`;return;
+  }
+  const cur=findAct(S.act);
+  if(!cur){el.innerHTML='<div class="idlemsg">Idle — pick something to train.</div>';return;}
+  if(cur.skill==='delve'){
+    const f=cur.foe,pct=Math.max(0,(S.foeHp/f.hp)*100);
+    el.innerHTML=`<div class="doing-row"><b>${f.n}</b><em>${S.hp}/${maxHp()} hp</em></div>
+      <div class="bar fight"><i style="width:${pct}%"></i></div>`;return;
+  }
+  if(cur.skill==='fight'){
+    const f=cur.foe,pct=Math.max(0,(S.foeHp/f.hp)*100);
+    el.innerHTML=`<div class="doing-row"><b>Fighting ${f.n}</b><em>${S.hp}/${maxHp()} hp</em></div>
+      <div class="bar fight"><i style="width:${pct}%"></i></div>`;return;
+  }
+  const{skill,a}=cur,dur=actDur(skill,a);
+  el.innerHTML=`<div class="doing-row"><b>${a.n}</b>
+    <em>${fmt(a.xp/(dur/1000)*3600)} xp/hr</em></div>
+    <div class="bar"><i style="width:${Math.min(100,(S.prog/dur)*100)}%"></i></div>`;
+}
+
+function skillStrip(){
+  return `<div class="skills">${ALL_SKILLS.map(k=>{
+    const l=lvlFor(S.xp[k]||0),p=xpInto(S.xp[k]||0);
+    return `<div class="sk${l>=99?' max':''}"><span class="n">${label(k)}</span>
+      <span class="v num">${l}</span><div class="xpbar"><i style="width:${p.pct}%"></i></div></div>`;
+  }).join('')}</div>`;
+}
+
+function actRow(key,a,ok,on){
+  const dur=actDur(key,a);
+  const needs=a.in?Object.keys(a.in).map(k=>`${a.in[k]}× ${item(k).n}`).join(', '):'';
+  const short=a.in&&!canPay(a.in);
+  const bits=[];
+  if(needs)bits.push(needs+(short?' — none in bank':''));
+  if(a.gp)bits.push(`${a.gp[0]}–${a.gp[1]} gp`);
+  if(a.fail)bits.push(`${Math.round(a.fail*100)}% caught`);
+  if(a.out&&!a.in)bits.push(Object.keys(a.out).map(k=>item(k).n).join(', '));
+  return `<button class="act${on?' on':''}" ${ok?'':'disabled'} data-go="${key}:${a.id}">
+    <span><span>${a.n}</span><span class="meta">${ok?(bits.join(' · ')||'—'):'Requires level '+a.lvl}</span></span>
+    <span class="rt">${fmt(a.xp)} xp<br>${(dur/1000).toFixed(1)}s</span></button>`;
+}
+
+function viewTrain(){
+  let h=`<h2>Levels &middot; combat ${combatLvl()}</h2>${skillStrip()}
+    <h2>Equipment</h2><div class="slots">`;
+  for(const sl of SLOTS){
+    const id=S.equip[sl];
+    h+=`<div class="slot${id?'':' none'}"><span class="n">${cap0(sl)}</span>
+      <span class="v">${id?EQ[id].n:'empty'}</span></div>`;
+  }
+  const G=gear(),P=prayerBonus();
+  h+=`</div><div class="row"><div class="grow"><b>+${G.str} strength &middot; +${G.def} defence</b>
+    <span>Prayer adds +${P.hit} max hit and soaks ${P.soak} damage</span></div></div>`;
+
+  h+=`<h2>Farm &middot; ${totalPatches()} patches</h2>`;
+  const fl=lvl('farming');
+  S.farm.forEach((pt,i)=>{
+    if(i>=totalPatches())return;
+    if(!pt.crop){
+      const sown=CROPS.filter(c=>fl>=c.lvl&&have(c.seed)>0);
+      h+=`<div class="patch"><div class="grow"><b>Empty patch</b>
+        <span>${sown.length?'Ready to sow':'No usable seeds — buy some in the shop'}</span></div>
+        ${sown.length?`<button class="mini buy" data-sow="${i}">Sow ${sown[sown.length-1].n}</button>`:''}</div>`;
+    }else{
+      const c=CROPS.find(x=>x.id===pt.crop),ready=pt.ms<=0;
+      const pct=ready?100:(1-pt.ms/c.ms)*100;
+      const mins=Math.ceil(pt.ms/60000);
+      h+=`<div class="patch${ready?' ready':''}"><div class="grow"><b>${c.n}</b>
+        <span>${ready?'Ready to harvest':`${mins} min remaining`}</span>
+        <div class="pbar"><i style="width:${pct}%"></i></div></div>
+        <button class="mini ${ready?'buy':''}" data-harvest="${i}" ${ready?'':'disabled'}>${ready?'Harvest':'Growing'}</button></div>`;
+    }
+  });
+  h+=`<h2>Train a skill</h2>`;
+  for(const key in SKILLS){
+    const s=SKILLS[key],L=lvl(key);
+    const open=(S.act&&S.act.startsWith(key+':'))?' open':'';
+    h+=`<details class="group"${open}><summary>${s.n}<span class="lv num">lv ${L}</span></summary>`;
+    for(const a of s.acts){
+      if(a.sub){h+=`<div class="subhead">${a.sub}</div>`;continue;}
+      h+=actRow(key,a,L>=a.lvl,S.act===key+':'+a.id);
+    }
+    h+=`</details>`;
+  }
+  h+=`<h2>Danger zone</h2><div class="row"><div class="grow"><b>Reset save</b>
+    <span>Wipes everything, permanently</span></div>
+    <button class="mini" data-wipe="1">Reset</button></div>`;
+  return h;
+}
+
+function viewFight(){
+  const G=gear(),P=prayerBonus();
+  const st=style(),ammo=bestAmmo(st);
+  const maxHit=maxHitFor(st,G,P,ammo);
+  let h=`<div class="arena">
+    <div class="hpline"><span>Your health</span><span class="num">${S.hp} / ${maxHp()}</span></div>
+    <div class="hpbar"><i style="width:${(S.hp/maxHp())*100}%"></i></div>
+    <div class="hpline"><span>${st} &middot; max hit ${maxHit}</span><span class="num">+${G.def} defence</span></div></div>`;
+  h+=`<div class="styles">
+    <div class="${st==='melee'?'act':''}"><span class="n">Melee</span><span class="v num">${lvl('attack')}/${lvl('strength')}</span></div>
+    <div class="${st==='ranged'?'act':''}"><span class="n">Ranged</span><span class="v num">${lvl('ranged')}</span></div>
+    <div class="${st==='magic'?'act':''}"><span class="n">Magic</span><span class="v num">${lvl('magic')}</span></div></div>`;
+  if(ammoKind(st))h+=`<div class="buffs">${ammo?`Firing ${item(ammo).n} — ${fmt(have(ammo))} left`:`<span class="resist">No ${ammoKind(st)}s banked — you are swinging bare-handed</span>`}</div>`;
+  const bk=Object.keys(S.buffs||{});
+  if(bk.length)h+=`<div class="buffs">Active: ${bk.map(k=>`+${S.buffs[k].amt} ${k} (${Math.ceil(S.buffs[k].ms/60000)}m)`).join(' &middot; ')}</div>`;
+
+  const ss=S.sess||{},acc=ss.swings?Math.round((ss.hits/ss.swings)*100):0;
+  h+=`<h2>This session</h2><div class="sess">
+    <div><span class="n">Kills</span><span class="v">${fmt(ss.kills||0)}</span></div>
+    <div><span class="n">Gold</span><span class="v">${fmt(ss.gp||0)}</span></div>
+    <div><span class="n">Accuracy</span><span class="v">${acc}%</span></div>
+    <div><span class="n">Damage out</span><span class="v">${fmt(ss.dealt||0)}</span></div>
+    <div><span class="n">Damage in</span><span class="v">${fmt(ss.taken||0)}</span></div>
+    <div><span class="n">Food eaten</span><span class="v">${fmt(ss.eaten||0)}</span></div>
+  </div>`;
+  h+=`<h2>Bosses</h2>`;
+  h+=`<div class="row"><div class="grow"><b>${have('boss_sigil')} boss sigils</b>
+    <span>One is spent per attempt. Slayer tasks drop them about a third of the time.</span></div></div>`;
+  for(const f of BOSSES){
+    const cl=combatLvl(),locked=cl<f.req,noKey=have('boss_sigil')<1;
+    const on=S.act==='fight:'+f.id;
+    h+=`<button class="act${on?' on fight':''} boss" ${(locked||(noKey&&!on))?'disabled':''} data-go="fight:${f.id}">
+      <span><span>${f.n}</span><span class="meta">${locked?`Needs combat ${f.req} — you are ${cl}`
+        :`${f.hp} hp &middot; hits up to ${f.max} &middot; ${Math.round(f.unique.c*100)}% ${item(f.unique.id).n} &middot; slain ${S.bossKills[f.id]||0}
+        &middot; <span class="${f.weak===st?'weak':'resist'}">weak to ${f.weak}</span>`}</span></span>
+      <span class="rt">lv ${f.lvl}<br>${fmt(f.xp)} xp</span></button>`;
+  }
+  h+=`<h2>Dungeons</h2>`;
+  if(S.delve){
+    const d=DUNGEONS.find(x=>x.id===S.delve.id);
+    h+=`<div class="task"><b>In ${d.n}</b> — floor ${S.delve.floor+1} of ${d.floors}
+      <div style="margin-top:6px;font-size:12px;color:var(--dim)">Dying forfeits the completion bonus. Floors do not heal you.</div></div>`;
+  }
+  for(const d of DUNGEONS){
+    const cl=combatLvl(),locked=cl<d.req,on=S.delve&&S.delve.id===d.id;
+    h+=`<button class="act${on?' on fight':''} boss" ${locked?'disabled':''} data-delve="${d.id}">
+      <span><span>${d.n}</span><span class="meta">${locked?`Needs combat ${d.req} — you are ${cl}`
+        :`${d.floors} floors &middot; <span class="${d.weak===st?'weak':'resist'}">weak to ${d.weak}</span> &middot; ${Math.round(d.ringC*100)}% ${item(d.ring).n}`}</span></span>
+      <span class="rt">${fmt(d.bonusXp)} xp<br>${fmt(d.bonusGp)} gp</span></button>`;
+  }
+  h+=`<h2>Combat log</h2>`;
+  h+=`<div class="log">${S.log.length?S.log.map(l=>{
+    if(typeof l==='string')return `<div><span class="hit">${l}</span></div>`;
+    return `<div><span class="tm">${l.s||''}</span><span class="${l.k}">${l.t}</span></div>`;
+  }).join(''):'<div><span class="miss">Nothing yet.</span></div>'}</div>
+  <div class="row" style="margin-top:8px"><div class="grow"><b>Combat log</b>
+    <span>Last 80 events &middot; offline fighting is summarised, not logged</span></div>
+    <button class="mini" data-clearlog="1">Clear</button></div>`;
+
+  if(S.task){
+    const f=FOES.find(x=>x.id===S.task.foe);
+    h+=`<div class="task"><b>Slayer task</b> — ${S.task.done} / ${S.task.need} ${f.n}
+      <div style="margin-top:6px"><button class="mini" data-skiptask="1">Skip task</button></div></div>`;
+  }
+  const food=Object.keys(S.bank).filter(k=>I[k]&&I[k].heal).reduce((n,k)=>n+S.bank[k],0);
+  h+=`<h2>Choose a foe</h2>`;
+  if(!food)h+=`<div class="empty">No cooked food banked. You will die eventually.</div>`;
+  for(const f of FOES){
+    const on=S.act==='fight:'+f.id;
+    const isTask=S.task&&S.task.foe===f.id;
+    h+=`<button class="act${on?' on fight':''}" data-go="fight:${f.id}">
+      <span><span>${f.n}${isTask?' &middot; task':''}</span>
+      <span class="meta">${f.hp} hp &middot; hits up to ${f.max} &middot; ${fmt(f.gp[0])}–${fmt(f.gp[1])} gp &middot; killed ${S.kills[f.id]||0}
+      ${f.weak?`&middot; <span class="${f.weak===st?'weak':'resist'}">weak to ${f.weak}</span>`:''}</span></span>
+      <span class="rt">lv ${f.lvl}<br>${f.xp} xp</span></button>`;
+  }
+  return h;
+}
+
+function viewQuests(){
+  let h=`<h2>Quests</h2>`;
+  for(const q of QUESTS){
+    const st=questState(q);
+    const parts=[];
+    if(q.need.lvl)for(const k in q.need.lvl)parts.push(`${label(k)} ${lvl(k)}/${q.need.lvl[k]}`);
+    if(q.need.kills)for(const k in q.need.kills){const f=FOES.find(x=>x.id===k);
+      parts.push(`${f.n} ${Math.min(S.kills[k]||0,q.need.kills[k])}/${q.need.kills[k]}`);}
+    if(q.need.items)for(const k in q.need.items)parts.push(`${item(k).n} ${Math.min(have(k),q.need.items[k])}/${q.need.items[k]}`);
+    const rw=[];
+    if(q.reward.xp)for(const k in q.reward.xp)rw.push(`${fmt(q.reward.xp[k])} ${label(k).toLowerCase()} xp`);
+    if(q.reward.items)for(const k in q.reward.items)rw.push(item(k).n);
+    if(q.reward.gp)rw.push(`${fmt(q.reward.gp)} gp`);
+    h+=`<div class="row ${st}"><div class="grow"><b>${q.n}</b>
+      <span>${st==='done'?'Completed':q.blurb}<br>${st==='done'?'':parts.join(' &middot; ')}
+      <br>Reward: ${rw.join(', ')}</span></div>
+      ${st==='done'?'':`<button class="mini buy" data-quest="${q.id}" ${st==='ready'?'':'disabled'}>${st==='ready'?'Claim':'…'}</button>`}
+    </div>`;
+  }
+  return h;
+}
+
+function viewBank(){
+  const used=bankUsed(),cap=bankCap(),pctc=(used/cap)*100;
+  const capbar=`<div class="cap"><i class="${pctc>=100?'full':pctc>80?'warn':''}" style="width:${Math.min(100,pctc)}%"></i></div>`;
+  const keys=Object.keys(S.bank).filter(k=>S.bank[k]>0);
+  if(!keys.length)return `<h2>Bank &middot; ${fmt(used)} / ${fmt(cap)}</h2>${capbar}<div class="empty">Empty. Go chop something.</div>`;
+  keys.sort((a,b)=>item(a).n.localeCompare(item(b).n));
+  const worth=keys.reduce((n,k)=>n+item(k).v*S.bank[k],0);
+  let h=`<h2>Bank &middot; ${fmt(used)} / ${fmt(cap)} &middot; worth ${fmt(worth)} gp</h2>${capbar}`;
+  if(pctc>=100)h+=`<div class="empty" style="color:var(--blood)">Bank is full. Gathering has stopped and drops are being lost.</div>`;
+  for(const k of keys){
+    const it=item(k),n=S.bank[k],eq=EQ[k];
+    const worn=eq&&S.equip[eq.slot]===k;
+    const tags=[`market ${fmt(marketPrice(k))} gp &middot; vendor ${fmt(Math.floor(it.v*0.7))} gp`];
+    if(it.heal)tags.push(`heals ${it.heal}`);
+    if(it.ammo)tags.push(`${it.ammo} · +${it.str} power`);
+    if(eq){if(eq.str)tags.push(`+${eq.str} str`);if(eq.def)tags.push(`+${eq.def} def`);tags.push(eq.slot);}
+    h+=`<div class="row"><div class="grow"><b>${it.n}</b><span>${tags.join(' · ')}</span></div>
+      <span class="qty num">${fmt(n)}</span>
+      ${eq?`<button class="mini eq" data-equip="${k}">${worn?'Worn':'Equip'}</button>`:''}
+      <button class="mini" data-list="${k}" ${(S.offers||[]).length>=GE_SLOTS?'disabled':''}>List</button>
+      <button class="mini" data-sell="${k}">Vendor</button></div>`;
+  }
+  return h;
+}
+
+function escapeSave(t){return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function petsHtml(){
+  const keys=Object.keys(PETS);
+  const got=keys.filter(k=>S.pets&&S.pets[k]).length;
+  return `<h2>Pets &middot; ${got} of ${keys.length}</h2><div class="pets">${
+    keys.map(k=>`<div class="pet${S.pets&&S.pets[k]?' got':''}">${S.pets&&S.pets[k]?PETS[k]:'???'}
+      <br><span style="color:var(--dim)">${k==='combat'?'Combat':label(k)}</span></div>`).join('')
+  }</div>`;
+}
+function viewShop(){
+  let h=`<h2>Tools</h2>`;
+  for(const t in TOOLS){
+    const cur=S.tools[t],next=TOOLS[t][cur+1];
+    const lbl=t==='axe'?'Woodcutting':t==='pick'?'Mining':'Fishing';
+    h+=`<div class="row"><div class="grow"><b>${TOOLS[t][cur].n}</b>
+      <span>${lbl} · ${next?`next: ${next.n}, ${Math.round((1-next.mul)*100)}% faster`:'fully upgraded'}</span></div>
+      ${next?`<button class="mini buy" data-tool="${t}" ${S.gp<next.cost?'disabled':''}>${fmt(next.cost)} gp</button>`:''}</div>`;
+  }
+  h+=`<h2>Grand Exchange &middot; ${(S.offers||[]).length}/${GE_SLOTS} slots</h2>`;
+  if(!(S.offers||[]).length)h+=`<div class="empty">No offers. List items from the Bank tab, or buy materials below.</div>`;
+  for(let i=0;i<(S.offers||[]).length;i++){
+    const o=S.offers[i],mkt=marketPrice(o.id),pct=(o.filled/o.qty)*100;
+    const diff=Math.round(((o.price-mkt)/mkt)*100);
+    h+=`<div class="offer ${o.kind}">
+      <div class="top"><b>${o.kind==='sell'?'Selling':'Buying'} ${fmt(o.qty)}× ${item(o.id).n}</b>
+        <span class="num">${fmt(o.price)} gp</span></div>
+      <div class="sub">${fmt(o.filled)} of ${fmt(o.qty)} filled &middot; market ${fmt(mkt)} gp
+        &middot; <span class="${(o.kind==='sell'?diff<=0:diff>=0)?'up':'down'}">${diff>0?'+':''}${diff}% vs market</span></div>
+      <div class="pbar"><i style="width:${pct}%"></i></div>
+      <div class="acts">
+        <button class="mini" data-nudge="${i}">${o.kind==='sell'?'Undercut 8%':'Bid +8%'}</button>
+        <button class="mini" data-cancel="${i}">Cancel</button></div></div>`;
+  }
+  h+=`<h2>Buy materials</h2>`;
+  for(const id of BUYABLE){
+    const mkt=marketPrice(id),base=item(id).v;
+    const diff=Math.round(((mkt-base)/base)*100);
+    h+=`<div class="row"><div class="grow"><b>${item(id).n}</b>
+      <span>${fmt(mkt)} gp &middot; <span class="${diff<=0?'up':'down'}">${diff>0?'+':''}${diff}% vs base</span> &middot; you hold ${fmt(have(id))}</span></div>
+      <button class="mini buy" data-order="${id}" ${(S.gp<mkt*100||(S.offers||[]).length>=GE_SLOTS)?'disabled':''}>Buy 100</button></div>`;
+  }
+  h+=`<h2>Your house</h2>`;
+  h+=`<div class="row"><div class="grow"><b>Passive bonuses</b>
+    <span>Gold ×${goldMul().toFixed(2)} &middot; ${totalPatches()} patches &middot; ${fmt(bankCap())} bank
+    &middot; crafting ${Math.round(room('workshop')*7)}% faster</span></div></div>`;
+  for(const r of ROOMS){
+    const t=room(r.id),nt=t+1;
+    if(nt>3){h+=`<div class="row done"><div class="grow"><b>${r.n} III</b><span>${r.desc(3)} &middot; complete</span></div></div>`;continue;}
+    const c=r.cost(nt);
+    const parts=Object.keys(c).map(k=>k==='gp'?`${fmt(c.gp)} gp`:`${c[k]}× ${item(k).n}`);
+    const afford=S.gp>=(c.gp||0)&&Object.keys(c).every(k=>k==='gp'||have(k)>=c[k]);
+    h+=`<div class="row"><div class="grow"><b>${r.n}${t?' '+'I'.repeat(t):''} ${t?'→ ':''}${'I'.repeat(nt)}</b>
+      <span>${r.desc(nt)}<br>${parts.join(', ')}</span></div>
+      <button class="mini buy" data-room="${r.id}" ${afford?'':'disabled'}>Build</button></div>`;
+  }
+  h+=`<h2>Bank space</h2>`;
+  const bt=S.bankTier||0,nextCap=BANK_TIERS[bt+1];
+  h+=`<div class="row"><div class="grow"><b>${fmt(bankUsed())} / ${fmt(bankCap())} items</b>
+    <span>${nextCap?`Next: ${fmt(nextCap)} slots`:'Fully expanded'}</span></div>
+    ${nextCap?`<button class="mini buy" data-bank="1" ${S.gp<BANK_COST[bt+1]?'disabled':''}>${fmt(BANK_COST[bt+1])} gp</button>`:''}</div>`;
+
+  h+=`<h2>Farm patches</h2>`;
+  const pcost=[0,0,0,8000,40000,180000][S.patches]||null;
+  h+=`<div class="row"><div class="grow"><b>${totalPatches()} patches</b>
+    <span>${S.patches<6?'Sow one more crop in parallel':'All six bought — the Garden adds more'}</span></div>
+    ${S.patches<6?`<button class="mini buy" data-patch="1" ${S.gp<pcost?'disabled':''}>${fmt(pcost)} gp</button>`:''}</div>`;
+
+  h+=`<h2>Seeds &amp; supplies</h2>`;
+  for(const it of STOCK){
+    const c=CROPS.find(x=>x.seed===it.id);
+    const locked=c&&lvl('farming')<c.lvl;
+    h+=`<div class="row"><div class="grow"><b>${item(it.id).n}</b>
+      <span>${locked?`Farming ${c.lvl} required`:c?`Grows in ${Math.round(c.ms/60000)} min · ${c.harv} xp each`:'For mixing potions'} &middot; you have ${have(it.id)}</span></div>
+      <button class="mini buy" data-shop="${it.id}" ${(S.gp<it.cost||locked)?'disabled':''}>${fmt(it.cost)} gp</button>
+      <button class="mini" data-shop10="${it.id}" ${(S.gp<it.cost*10||locked)?'disabled':''}>×10</button></div>`;
+  }
+  const totLvl=ALL_SKILLS.reduce((n,k)=>n+lvlFor(S.xp[k]||0),0);
+  const totXp=ALL_SKILLS.reduce((n,k)=>n+(S.xp[k]||0),0);
+  const kills=Object.values(S.kills||{}).reduce((a,b)=>a+b,0);
+  const hrs=(S.played||0)/3600000;
+  const petsGot=Object.keys(S.pets||{}).length;
+  const questsDone=Object.keys(S.quests||{}).length;
+  h+=`<h2>Progress</h2><div class="stats">
+    <div><span class="n">Total level</span><span class="v num">${totLvl}</span></div>
+    <div><span class="n">Total xp</span><span class="v num">${fmt(totXp)}</span></div>
+    <div><span class="n">Time played</span><span class="v num">${hrs<1?Math.round(hrs*60)+'m':hrs.toFixed(1)+'h'}</span></div>
+    <div><span class="n">Kills</span><span class="v num">${fmt(kills)}</span></div>
+    <div><span class="n">Quests</span><span class="v num">${questsDone} / ${QUESTS.length}</span></div>
+    <div><span class="n">Pets</span><span class="v num">${petsGot} / ${Object.keys(PETS).length}</span></div>
+  </div>`;
+  h+=petsHtml();
+  if(Updater.supported){
+    const st=Updater.state;
+    const line=st==='checking'?'Checking…'
+      :st==='ready'?`Version ${Updater.latest} is available`
+      :st==='current'?'You are on the latest version'
+      :st==='offline'?'Could not reach the server'
+      :'Tap to check';
+    h+=`<h2>App version</h2>`;
+    h+=`<div class="row ${st==='ready'?'ready':''}"><div class="grow"><b>Hollowmere ${APP_VERSION}</b>
+      <span>${line}</span></div>
+      ${st==='ready'
+        ? `<button class="mini buy" data-doupdate="1">Update</button>`
+        : `<button class="mini" data-checkupdate="1" ${st==='checking'?'disabled':''}>Check</button>`}</div>`;
+    if(st==='ready')h+=`<div class="empty">Your saves are not touched by updating.</div>`;
+  }
+  h+=`<h2>Save slots</h2>`;
+  if(!Store.persistent)h+=`<div class="empty" style="color:var(--blood)">No storage available here — nothing will be kept when you close this. Export your save.</div>`;
+  else h+=`<div class="empty">Saving to: ${Store.mode}</div>`;
+  for(let i=1;i<=SLOTS_N;i++){
+    const info=slotInfo[i-1],cur=i===curSlot;
+    const when=info&&info.last?new Date(info.last).toLocaleDateString():'';
+    h+=`<div class="row ${cur?'ready':''}"><div class="grow"><b>Slot ${i}${cur?' — active':''}</b>
+      <span>${info?`total level ${info.lvl} &middot; ${fmt(info.gp)} gp &middot; ${(info.played/3600000).toFixed(1)}h &middot; ${when}`:'empty'}</span></div>
+      ${cur?'':`<button class="mini eq" data-slot="${i}">${info?'Load':'New'}</button>`}
+      ${info&&!cur?`<button class="mini" data-slotdel="${i}">Erase</button>`:''}</div>`;
+  }
+  h+=`<h2>Back up your save</h2>`;
+  h+=`<div class="row"><div class="grow"><b>Your save lives in this browser only</b>
+    <span>Clearing site data or switching phones loses it. Export a copy and keep it somewhere safe.</span></div></div>`;
+  h+=`<textarea class="savebox" id="savetext" readonly onclick="this.select()">${escapeSave(JSON.stringify(S))}</textarea>`;
+  h+=`<div class="row"><div class="grow"><b>Export</b><span>Copy the text above, or download a file</span></div>
+    <button class="mini buy" data-copy="1">Copy</button>
+    <button class="mini" data-download="1">File</button></div>`;
+  h+=`<h2>Restore</h2>`;
+  h+=`<textarea class="savebox" id="loadtext" placeholder="Paste a save here, then tap Restore"></textarea>`;
+  h+=`<div class="row"><div class="grow"><b>Restore</b><span>Replaces everything currently in this browser</span></div>
+    <button class="mini" data-restore="1">Restore</button></div>`;
+  h+=`<h2>Notes</h2><div class="empty">Weapons, armour and amulets are made, not bought — train Smithing and Crafting.</div>`;
+  return h;
+}
+
+function bodyHtml(){
+  return tab==='train'?viewTrain():tab==='fight'?viewFight():tab==='quests'?viewQuests()
+    :tab==='bank'?viewBank():viewShop();
+}
+function repaint(){
+  const v=$('view'),y=v.scrollTop;
+  v.querySelectorAll('details.group').forEach(d=>{
+    const k=d.querySelector('summary').textContent;
+    if(d.open)openGroups.add(k);else openGroups.delete(k);
+  });
+  v.innerHTML=bodyHtml();
+  v.querySelectorAll('details.group').forEach(d=>{
+    if(openGroups.has(d.querySelector('summary').textContent))d.open=true;
+  });
+  v.scrollTop=y;
+  $('purse').innerHTML=`${fmt(S.gp)} <span>gp</span>`;
+  const qb=document.querySelector('nav button[data-tab="quests"]');
+  qb.innerHTML='Quests'+(questsReady()?'<span class="pip"></span>':'');
+}
+function render(){
+  renderDoing();repaint();
+  document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.tab===tab));
+}
+
+/* ============================================================
+   INPUT
+   ============================================================ */
+document.querySelector('nav').addEventListener('click',e=>{
+  const b=e.target.closest('button');if(!b)return;tab=b.dataset.tab;render();
+});
+$('view').addEventListener('click',e=>{
+  const b=e.target.closest('button');if(!b)return;
+  if(b.dataset.go){
+    const key=b.dataset.go;
+    if(S.act===key){S.act=null;S.foe=null;}
+    else{
+      const bf=BOSSES.find(x=>'fight:'+x.id===key);
+      if(bf){
+        if(combatLvl()<bf.req){toast(`Needs combat ${bf.req}`);return;}
+        if(have('boss_sigil')<1){toast('No boss sigil');return;}
+        take('boss_sigil',1);S.foe=null;S.foeHp=0;
+        pushLog(`Sigil spent — entering ${bf.n}`,'task');
+      }
+      if(key.startsWith('fight')&&S.act!==key)resetSess();
+      S.act=key;S.prog=0;S.stun=0;if(!key.startsWith('fight'))S.foe=null;
+    }
+    render();save();return;
+  }
+  if(b.dataset.sell){
+    const k=b.dataset.sell,n=S.bank[k],val=Math.floor(item(k).v*0.7)*n;
+    if(EQ[k]&&S.equip[EQ[k].slot]===k)S.equip[EQ[k].slot]=null;
+    delete S.bank[k];S.gp+=val;toast(`Vendored ${fmt(n)}× ${item(k).n} for ${fmt(val)} gp`);
+    render();save();return;
+  }
+  if(b.dataset.equip){
+    const k=b.dataset.equip,eq=EQ[k];
+    S.equip[eq.slot]=S.equip[eq.slot]===k?null:k;render();save();return;
+  }
+  if(b.dataset.tool){
+    const t=b.dataset.tool,next=TOOLS[t][S.tools[t]+1];
+    if(!next||S.gp<next.cost)return;
+    S.gp-=next.cost;S.tools[t]++;toast(`Bought ${next.n}`);render();save();return;
+  }
+  if(b.dataset.quest){
+    const q=QUESTS.find(x=>x.id===b.dataset.quest);if(q)claimQuest(q);
+    render();save();return;
+  }
+  if(b.dataset.skiptask){rollTask();render();save();return;}
+  if(b.dataset.checkupdate){Updater.check();return;}
+  if(b.dataset.doupdate){Updater.apply();return;}
+  if(b.dataset.slot){
+    const i=+b.dataset.slot;
+    loadSlot(i).then(()=>{lastFrame=Date.now();render();toast(`Slot ${i} active`);});
+    return;
+  }
+  if(b.dataset.slotdel){
+    const i=+b.dataset.slotdel;
+    if(!confirm(`Erase slot ${i}? This cannot be undone.`))return;
+    Store.del(slotKey(i)).then(refreshSlots).then(()=>{render();toast(`Slot ${i} erased`);});
+    return;
+  }
+  if(b.dataset.copy){
+    const t=JSON.stringify(S);
+    const ta=document.getElementById('savetext');
+    if(ta){ta.select();}
+    if(navigator.clipboard&&navigator.clipboard.writeText){
+      navigator.clipboard.writeText(t).then(()=>toast('Save copied'),()=>toast('Copy blocked — select the text manually'));
+    }else{
+      try{document.execCommand('copy');toast('Save copied');}
+      catch(e){toast('Copy blocked — select the text manually');}
+    }
+    return;
+  }
+  if(b.dataset.download){
+    try{
+      const blob=new Blob([JSON.stringify(S,null,1)],{type:'application/json'});
+      const url=URL.createObjectURL(blob);
+      const a=document.createElement('a');
+      const d=new Date();
+      a.href=url;
+      a.download=`hollowmere-${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}.json`;
+      document.body.appendChild(a);a.click();a.remove();
+      setTimeout(()=>URL.revokeObjectURL(url),4000);
+      toast('Save downloaded');
+    }catch(e){toast('Download blocked — use Copy instead');}
+    return;
+  }
+  if(b.dataset.restore){
+    const ta=document.getElementById('loadtext');
+    const raw=ta&&ta.value.trim();
+    if(!raw){toast('Paste a save first');return;}
+    let p;
+    try{p=JSON.parse(raw);}catch(e){toast('That is not valid save data');return;}
+    if(!p||typeof p!=='object'||!p.xp||typeof p.xp!=='object'){toast('That save is missing its skills');return;}
+    if(!confirm('Replace your current save? This cannot be undone.'))return;
+    const f=fresh();
+    S=Object.assign(f,p);
+    S.xp=Object.assign(fresh().xp,p.xp||{});
+    S.equip=Object.assign(fresh().equip,p.equip||{});
+    S.house=Object.assign(fresh().house,p.house||{});
+    S.farm=Array.isArray(p.farm)?p.farm:f.farm;
+    S.offers=Array.isArray(p.offers)?p.offers:[];
+    S.market=p.market||{};S.pets=p.pets||{};
+    while(S.farm.length<totalPatches())S.farm.push({crop:null,ms:0});
+    S.last=Date.now();
+    render();save();toast('Save restored');
+    return;
+  }
+  if(b.dataset.list){
+    const id=b.dataset.list,qty=have(id);
+    if(!qty||(S.offers||[]).length>=GE_SLOTS){toast('No free offer slots');return;}
+    if(EQ[id]&&S.equip[EQ[id].slot]===id)S.equip[EQ[id].slot]=null;
+    take(id,qty);
+    S.offers.push({kind:'sell',id,qty,filled:0,price:marketPrice(id)});
+    toast(`Listed ${fmt(qty)}× ${item(id).n}`);render();save();return;
+  }
+  if(b.dataset.order){
+    const id=b.dataset.order,qty=100,price=marketPrice(id);
+    if((S.offers||[]).length>=GE_SLOTS){toast('No free offer slots');return;}
+    if(S.gp<price*qty)return;
+    S.gp-=price*qty;
+    S.offers.push({kind:'buy',id,qty,filled:0,price});
+    toast(`Buying ${qty}× ${item(id).n}`);render();save();return;
+  }
+  if(b.dataset.nudge){
+    const o=S.offers[+b.dataset.nudge];if(!o)return;
+    if(o.kind==='sell')o.price=Math.max(1,Math.round(o.price*0.92));
+    else{
+      const extra=Math.round(o.price*0.08)*(o.qty-o.filled);
+      if(S.gp<extra){toast('Not enough gold to raise the bid');return;}
+      S.gp-=extra;o.price=Math.round(o.price*1.08);
+    }
+    render();save();return;
+  }
+  if(b.dataset.cancel){
+    const i=+b.dataset.cancel,o=S.offers[i];if(!o)return;
+    const left=o.qty-o.filled;
+    if(o.kind==='sell')add(o.id,left);else S.gp+=left*o.price;
+    S.offers.splice(i,1);
+    toast('Offer cancelled');render();save();return;
+  }
+  if(b.dataset.delve){
+    const d=DUNGEONS.find(x=>x.id===b.dataset.delve);if(!d)return;
+    if(combatLvl()<d.req){toast(`Needs combat ${d.req}`);return;}
+    if(S.delve&&S.delve.id===d.id){S.delve=null;S.act=null;S.foe=null;toast('Left the dungeon');}
+    else{S.delve={id:d.id,floor:0};S.act='delve:'+d.id;S.foe=null;S.foeHp=0;S.prog=0;
+      resetSess();pushLog(`Entered ${d.n}`,'task');}
+    render();save();return;
+  }
+  if(b.dataset.room){
+    const r=ROOMS.find(x=>x.id===b.dataset.room);if(!r)return;
+    const nt=room(r.id)+1;if(nt>3)return;
+    const c=r.cost(nt);
+    if(S.gp<(c.gp||0))return;
+    for(const k in c)if(k!=='gp'&&have(k)<c[k])return;
+    S.gp-=(c.gp||0);
+    for(const k in c)if(k!=='gp')take(k,c[k]);
+    S.house[r.id]=nt;
+    if(r.id==='garden')while(S.farm.length<totalPatches())S.farm.push({crop:null,ms:0});
+    toast(`${r.n} ${'I'.repeat(nt)} built`);render();save();return;
+  }
+  if(b.dataset.sow){
+    const i=+b.dataset.sow,fl=lvl('farming');
+    const sown=CROPS.filter(c=>fl>=c.lvl&&have(c.seed)>0);
+    if(!sown.length)return;
+    const c=sown[sown.length-1];
+    take(c.seed,1);S.farm[i]={crop:c.id,ms:c.ms};grantXp('farming',c.plant);
+    toast(`Sowed ${c.n}`);render();save();return;
+  }
+  if(b.dataset.harvest){
+    const i=+b.dataset.harvest,pt=S.farm[i];
+    if(!pt.crop||pt.ms>0)return;
+    const c=CROPS.find(x=>x.id===pt.crop);
+    const n=c.yield[0]+Math.floor(Math.random()*(c.yield[1]-c.yield[0]+1));
+    const got=add(c.out,n);grantXp('farming',c.harv);
+    rollPet('farming',c.ms/4);   // scaled to grow time so slow crops aren't punished
+    S.farm[i]={crop:null,ms:0};
+    toast(got?`Harvested ${got}× ${item(c.out).n}`:'Bank full — harvest lost');
+    render();save();return;
+  }
+  if(b.dataset.shop||b.dataset.shop10){
+    const id=b.dataset.shop||b.dataset.shop10,qty=b.dataset.shop10?10:1;
+    const st=STOCK.find(x=>x.id===id);if(!st)return;
+    const cost=st.cost*qty;if(S.gp<cost)return;
+    if(bankCap()-bankUsed()<qty){toast('Bank is full');return;}
+    S.gp-=cost;add(id,qty);toast(`Bought ${qty}× ${item(id).n}`);render();save();return;
+  }
+  if(b.dataset.bank){
+    const t=(S.bankTier||0)+1;if(!BANK_TIERS[t]||S.gp<BANK_COST[t])return;
+    S.gp-=BANK_COST[t];S.bankTier=t;toast(`Bank expanded to ${fmt(BANK_TIERS[t])}`);render();save();return;
+  }
+  if(b.dataset.patch){
+    const cost=[0,0,0,8000,40000,180000][S.patches];
+    if(S.patches>=6||S.gp<cost)return;
+    S.gp-=cost;S.patches++;S.farm.push({crop:null,ms:0});
+    toast(`${S.patches} patches`);render();save();return;
+  }
+  if(b.dataset.clearlog){S.log=[];resetSess();render();save();return;}
+  if(b.dataset.wipe){if(confirm('Wipe your save? This cannot be undone.'))wipe();}
+});
+
+/* ============================================================
+   LOOP
+   ============================================================ */
+let lastFrame=Date.now(),sinceSave=0,sinceFull=0;
+function loop(){
+  const now=Date.now(),dt=Math.min(now-lastFrame,2000);lastFrame=now;
+  const before=S.act;
+  tick(dt);
+  renderDoing();
+  sinceFull+=dt;
+  if(sinceFull>800||before!==S.act){sinceFull=0;repaint();}
+  sinceSave+=dt;if(sinceSave>10000){sinceSave=0;save();}
+  requestAnimationFrame(loop);
+}
+document.addEventListener('visibilitychange',()=>{
+  if(document.hidden)save();
+  else{const r=catchUp();lastFrame=Date.now();render();showCatchUp(r);}
+});
+(async function(){
+  await Updater.register();
+  await load();
+  if(!S.task)rollTask();
+  const r=catchUp();
+  render();showCatchUp(r);
+  lastFrame=Date.now();
+  requestAnimationFrame(loop);
+  // quiet check a few seconds in; only speaks up if there is something new
+  if(Updater.supported)setTimeout(async()=>{
+    await Updater.check();
+    if(Updater.state==='ready')toast(`Version ${Updater.latest} available — Town tab`);
+  },4000);
+})();
+</script>
+</body>
+</html>

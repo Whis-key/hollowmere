@@ -61,6 +61,6 @@ self.addEventListener('fetch', e => {
         caches.open(CACHE).then(c => c.put(req, copy));
       }
       return res;
-    }).catch(() => new Response('', {status: 504}))
+    }).catch(() => new Response('', {status: 504})))
   );
 });

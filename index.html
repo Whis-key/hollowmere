@@ -201,7 +201,7 @@
 </div></div>
 
 <script>
-const APP_VERSION='5.8';   /* bumped every release; the updater reads this string */
+const APP_VERSION='5.9';   /* bumped every release; the updater reads this string */
 
 /* ------------------------------------------------------------------
    Self-updating. The service worker serves the page network-first, so a
@@ -950,15 +950,31 @@ function buffTick(dt){
   for(const k in S.buffs){S.buffs[k].ms-=dt;if(S.buffs[k].ms<=0)delete S.buffs[k];}
 }
 function buffTotal(k){return S.buffs[k]?S.buffs[k].amt:0;}
+/* Drink whatever actually improves you, not whatever is most expensive.
+   The old version sorted by gp value and only ever considered the single
+   priciest stack, so an attack potion was never drunk while anything dearer
+   sat in the bank. It also bailed as soon as ONE key was already satisfied,
+   which let a lone +8 acc block a combat potion's str and def entirely.
+   Now: score each potion by the buff it would genuinely add, drink the best,
+   and loop so several keys can be topped up from different potions. */
 function drinkIfNeeded(){
-  const pots=Object.keys(S.bank).filter(k=>I[k]&&I[k].buff&&S.bank[k]>0);
-  if(!pots.length)return;
-  pots.sort((a,b)=>I[b].v-I[a].v);           // strongest first
-  const best=pots[0],def=I[best];
-  for(const k in def.buff)if(buffTotal(k)>=def.buff[k])return;   // already as good or better
-  take(best,1);
-  for(const k in def.buff)S.buffs[k]={amt:def.buff[k],ms:def.ms};
-  pushLog(`Drank ${def.n} — ${Object.entries(def.buff).map(([k,v])=>'+'+v+' '+k).join(', ')} for ${Math.round(def.ms/60000)} min`,'eat');
+  for(let guard=0;guard<4;guard++){
+    let best=null,bestGain=0;
+    for(const k in S.bank){
+      const def=I[k];
+      if(!def||!def.buff||S.bank[k]<=0)continue;
+      let gain=0;
+      for(const b in def.buff)gain+=Math.max(0,def.buff[b]-buffTotal(b));
+      if(gain>bestGain){bestGain=gain;best=k;}
+    }
+    if(!best)return;                     // nothing in the bank would improve on what is active
+    const def=I[best];
+    take(best,1);
+    // Only raise a key, never lower it — a weaker potion must not stomp a
+    // stronger buff that is still running.
+    for(const b in def.buff)if(def.buff[b]>buffTotal(b))S.buffs[b]={amt:def.buff[b],ms:def.ms};
+    pushLog(`Drank ${def.n} — ${Object.entries(def.buff).map(([k,v])=>'+'+v+' '+k).join(', ')} for ${Math.round(def.ms/60000)} min`,'eat');
+  }
 }
 
 function tick(dt){

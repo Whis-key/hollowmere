@@ -96,7 +96,7 @@ jobs:
           APK=$(find android/app/build/outputs/apk/release -name '*.apk' | head -1)
           cp "$APK" hollowmere.apk
           # Quoted heredoc: the shell leaves the backticks alone, and Actions
-          # has already substituted the ${{ }} expressions by the time it runs.
+          # has already substituted its expressions by the time this runs.
           cat > notes.md <<'EOF'
           Signed release build of the Android shell.
 

@@ -1,96 +1,73 @@
 # Hollowmere
 
-An idle skilling RPG with RuneScape-style mechanics. Single HTML file, served as
-an installable PWA from GitHub Pages. Everything here runs from a phone — no PC
-needed at any step.
+An idle skilling RPG with RuneScape-style mechanics. The game is a single HTML
+file served from GitHub Pages; an Android app wraps it in a WebView so saves
+live in app-private storage. Everything here is built and released from a phone.
 
-**Live at:** https://whis-key.github.io/hollowmere/
+**Site:** https://whis-key.github.io/hollowmere/
+**App:** https://github.com/Whis-key/hollowmere/releases/tag/android-latest
 
 ---
 
-## Files
+## How the pieces fit
 
-| File | What it is |
+The APK does **not** contain the game. It loads the site above at runtime.
+That means every file in this repo is live — nothing here is spare.
+
+| File | Why it must stay |
 | --- | --- |
-| `index.html` | The entire game — logic, styles, and save system in one file |
-| `manifest.webmanifest` | PWA metadata: name, icons, colours, standalone display |
-| `sw.js` | Service worker. Network-first for the page, cache-first for icons |
-| `icon-192.png` | Home screen icon |
-| `icon-512.png` | Splash / high-DPI icon |
-| `icon-maskable-512.png` | Adaptive icon with a safe zone for round launchers |
+| `index.html` | The whole game: logic, styles, saves |
+| `sw.js` | Service worker. Registering it is what makes the in-app update panel appear at all |
+| `manifest.webmanifest` | Listed in the service worker's `addAll`, which is atomic — one missing file and nothing caches |
+| `icon-192.png`, `icon-512.png`, `icon-maskable-512.png` | Same `addAll` list, plus the apple-touch-icon |
+| `android/` | The native shell and its build config |
 
----
-
-## Installing it as an app
-
-The repo must be **public** — GitHub Pages does not serve private repos on a
-free account.
-
-1. **Settings → Pages.** Source: *Deploy from a branch*. Branch `main`, folder
-   `/ (root)`. Save.
-2. **Wait for the build.** The Actions tab shows a *pages build and deployment*
-   job. It takes 30–90 seconds. Green check means live.
-3. **Check the manifest loads.** Visit
-   `https://whis-key.github.io/hollowmere/manifest.webmanifest` directly. You
-   should see JSON, not a 404 page. If it 404s, nothing below will work.
-4. **Open the game** at https://whis-key.github.io/hollowmere/ in Chrome and let
-   it fully load once, so the service worker has time to register.
-5. **⋮ menu → Install app** (older Chrome calls it *Add to Home screen*).
-   Confirm.
-6. **Launch from the home screen icon.** You should get the dark background, no
-   address bar, locked to portrait. If the address bar is still showing, it
-   installed as a plain bookmark — that means the manifest isn't being read.
-
-### If the install prompt never appears
-
-Almost always one of these:
-
-- `<link rel="manifest">` in `index.html` points at a filename that isn't in the
-  repo. The name must match exactly, `manifest.webmanifest` included.
-- `sw.js` has a syntax error, so registration fails silently. Check it parses
-  before committing.
-- Paths in the manifest are absolute (`/icon-192.png`) instead of relative
-  (`./icon-192.png`). The site is served from `/hollowmere/`, not the domain
-  root, so absolute paths resolve to the wrong place.
+Deleting any web file breaks the app, not just the browser version.
 
 ---
 
 ## Updating the game
 
-The updater compares `APP_VERSION` inside the deployed `index.html` against the
-copy running on your phone. **Bump it or nothing happens.**
+This is the normal path and needs no rebuild.
 
-```js
-const APP_VERSION='5.1';   // near the top of the <script> block
-```
+1. Edit `index.html` — your changes **and** the `APP_VERSION` bump near the top
+   of the `<script>` block, in one commit. The updater compares that string
+   against the running copy, so without a bump nothing happens.
+2. Wait for the green check in the Actions tab. Checking sooner reports "up to
+   date" because Pages has not rebuilt yet.
+3. In the app: **Town → App version → Check → Update.**
 
-1. Edit `index.html` — game changes **and** the version bump, in one commit.
-2. Wait for the green check in the Actions tab. Checking sooner just reports
-   "up to date" because Pages hasn't rebuilt yet.
-3. In the app: **Town → App version → Check**, then **Update**.
+One tap saves progress, clears caches, and reloads onto the new build. Any
+different version string works — the comparison is inequality, not ordering.
 
-One tap saves your progress, clears the caches, and reloads onto the new build.
-The game also checks quietly a few seconds after launch and shows a notice if
-something newer is waiting.
+## Updating the Android shell
 
-Any different version string works — `5.2`, `5.1.1`, `6.0`. The comparison is
-string inequality, not ordering.
+Only needed when something in `android/` changes — the WebView config, the
+manifest, the icon. Commit it and the workflow builds a signed APK and replaces
+the `android-latest` release. Install it over the existing app.
 
-`sw.js` does **not** need editing on each release. The page is served
-network-first, so a fresh commit is picked up on the next launch regardless.
+---
+
+## Signing
+
+Builds are signed with a persistent key so each APK installs over the last and
+keeps its data. The key lives in `android/keystore.jks.enc`, encrypted with the
+`KEYSTORE_PASSWORD` repository secret.
+
+**If that passphrase is lost, no future build can update an installed app.**
+The only way forward would be uninstalling, which erases saves. Keep a copy of
+it somewhere outside GitHub.
+
+The decrypted `keystore.jks` is gitignored and must never be committed.
 
 ---
 
 ## Where saves live
 
-Saves are in the browser's `localStorage` for this origin, not in the cached
-files. Three slots, plus a legacy single-slot format that migrates on load.
+In the app's private storage, keyed to the package `io.github.whiskey.hollowmere`.
+Three slots. Clearing Chrome's data does not touch them; uninstalling does.
 
-- **Updating never touches saves.**
-- **Uninstalling the app or clearing Chrome's site data erases them.**
+Browser and app storage are separate boxes. To move a save between them, use
+**Town → Back up your save → Copy** and paste into **Restore** on the other.
 
-Back up first: **Town → Back up your save → Copy**, and paste it into **Restore**
-to bring it back or move it to another device.
-
-Saves made inside a Claude artifact live in separate storage and will not appear
-in the installed app. Export and restore to carry one across.
+Back up before uninstalling anything.

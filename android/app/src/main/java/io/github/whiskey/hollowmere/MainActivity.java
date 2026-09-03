@@ -5,7 +5,10 @@ import android.app.Activity;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.view.KeyEvent;
+import android.view.MotionEvent;
+import android.view.View;
 import android.view.ViewGroup;
+import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
@@ -26,7 +29,7 @@ public class MainActivity extends Activity {
 
     private WebView web;
 
-    @SuppressLint("SetJavaScriptEnabled")
+    @SuppressLint({"SetJavaScriptEnabled", "ClickableViewAccessibility"})
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -48,6 +51,29 @@ public class MainActivity extends Activity {
         s.setMediaPlaybackRequiresUserGesture(false);
         s.setSupportZoom(false);
         s.setBuiltInZoomControls(false);
+        // Let the page take focus as soon as it loads, so the first tap on a
+        // text field actually lands.
+        s.setNeedInitialFocus(true);
+
+        // A bare WebView does not claim focus on touch. Without this the
+        // keyboard opens and is dismissed again immediately, and because the
+        // field never holds focus there is no selection and no paste option.
+        web.setFocusable(true);
+        web.setFocusableInTouchMode(true);
+        web.setOnTouchListener(new View.OnTouchListener() {
+            @Override
+            public boolean onTouch(View v, MotionEvent event) {
+                int action = event.getActionMasked();
+                if ((action == MotionEvent.ACTION_DOWN || action == MotionEvent.ACTION_UP)
+                        && !v.hasFocus()) {
+                    v.requestFocus();
+                }
+                return false;   // never consume: the page still handles the tap
+            }
+        });
+
+        // Some input behaviour is only wired up when a chrome client exists.
+        web.setWebChromeClient(new WebChromeClient());
 
         // Keep every navigation inside the app rather than kicking out to Chrome,
         // which would land the player in a different storage box.

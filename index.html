@@ -201,7 +201,7 @@
 </div></div>
 
 <script>
-const APP_VERSION='5.6';   /* bumped every release; the updater reads this string */
+const APP_VERSION='5.7';   /* bumped every release; the updater reads this string */
 
 /* ------------------------------------------------------------------
    Self-updating. The service worker serves the page network-first, so a
@@ -426,9 +426,9 @@ const SKILLS={
   thieving:{n:'Thieving',acts:[
     {id:'p1',n:'Fruit stall',lvl:1,xp:22,dur:5000,gp:[4,14],fail:.30,stun:4000},
     {id:'p2',n:'Silk stall',lvl:20,xp:55,dur:5600,gp:[18,45],fail:.28,stun:5000,out:{silk:1}},
-    {id:'p3',n:'Gem stall',lvl:40,xp:110,dur:6400,gp:[50,130],fail:.26,stun:6000,rare:{id:'uncut_sapphire',c:.05}},
-    {id:'p4',n:'Pickpocket noble',lvl:55,xp:190,dur:7200,gp:[130,320],fail:.24,stun:7000,rare:{id:'uncut_ruby',c:.03}},
-    {id:'p5',n:'Rob the vault',lvl:75,xp:340,dur:8800,gp:[400,1000],fail:.22,stun:9000,rare:{id:'uncut_diamond',c:.04}},
+    {id:'p3',n:'Gem stall',lvl:40,xp:110,dur:6400,gp:[50,130],fail:.26,stun:6000,loot:{table:'gem',c:.025}},
+    {id:'p4',n:'Pickpocket noble',lvl:55,xp:190,dur:7200,gp:[130,320],fail:.24,stun:7000,loot:{table:'gem_rich',c:.035}},
+    {id:'p5',n:'Rob the vault',lvl:75,xp:340,dur:8800,gp:[400,1000],fail:.22,stun:9000,loot:{table:'gem_rich',c:.125}},
   ]},
   crafting:{n:'Crafting',acts:[
     {sub:'Leatherwork'},
@@ -553,19 +553,68 @@ const BANK_COST=[0,3000,15000,70000,300000];
 const COMBAT_SKILLS=['attack','strength','defence','hitpoints','ranged','magic','slayer','farming'];
 const ALL_SKILLS=[...COMBAT_SKILLS,...Object.keys(SKILLS)];
 
+/* ============================================================
+   LOOT TABLES
+   ============================================================ */
+/* A table is a weighted list rolled ONCE: a hit picks a single entry. That is
+   what makes a table safe to share — adding an entry dilutes the others rather
+   than lifting the overall drop rate, so putting `herb_mid` on a new monster
+   cannot quietly inflate what the existing ones already pay out.
+   w is relative weight. n is quantity: a number is fixed, [lo,hi] a range. */
+const TABLES={
+  herb_low:{n:'Herb table',drops:[
+    {id:'grimy_bitterleaf',w:70},{id:'grimy_marshroot',w:30}]},
+  herb_mid:{n:'Herb table',drops:[
+    {id:'grimy_marshroot',w:55},{id:'grimy_emberwort',w:35},{id:'grimy_sunthistle',w:10}]},
+  herb_high:{n:'Herb table',drops:[
+    {id:'grimy_emberwort',w:40},{id:'grimy_sunthistle',w:40},{id:'grimy_frostvein',w:20}]},
+  gem:{n:'Gem table',drops:[
+    {id:'uncut_sapphire',w:60},{id:'uncut_emerald',w:25},{id:'uncut_ruby',w:12},{id:'uncut_diamond',w:3}]},
+  gem_rich:{n:'Rich gem table',drops:[
+    {id:'uncut_sapphire',w:20},{id:'uncut_emerald',w:35},{id:'uncut_ruby',w:32},{id:'uncut_diamond',w:13}]},
+};
+/* A loot ref is {c, table:'gem'} or {c, id:'thing'[, n]}. A bare item is just a
+   one-entry table, so every drop in the game — monster, boss, dungeon clear,
+   skilling — resolves through the same code path. */
+function refDrops(ref){return ref.table?((TABLES[ref.table]||{drops:[]}).drops):[{id:ref.id,w:1,n:ref.n}];}
+function refLabel(ref){return ref.table?(TABLES[ref.table]||{n:'?'}).n:item(ref.id).n;}
+function pickWeighted(list){
+  let tot=0;for(const e of list)tot+=(e.w||1);
+  let r=Math.random()*tot;
+  for(const e of list){r-=(e.w||1);if(r<0)return e;}
+  return list[list.length-1]||null;
+}
+function rollQty(e){
+  if(e.n===undefined)return 1;
+  return Array.isArray(e.n)?e.n[0]+Math.floor(Math.random()*(e.n[1]-e.n[0]+1)):e.n;
+}
+/* Roll one ref or a list of them. Each rolls independently at its own chance;
+   a hit picks a single entry from that ref's table. Returns [{id,qty}] and
+   banks nothing, so callers keep control of logging and awarding. */
+function rollLoot(refs){
+  const out=[];
+  for(const ref of [].concat(refs||[])){
+    if(!ref)continue;
+    if(Math.random()>=(ref.c===undefined?1:ref.c))continue;
+    const e=pickWeighted(refDrops(ref));
+    if(e)out.push({id:e.id,qty:rollQty(e)});
+  }
+  return out;
+}
+
 const FOES=[
   {id:'rat',weak:'melee',n:'Giant rat',lvl:2,hp:8,max:2,spd:3000,xp:14,gp:[1,4],drop:{bones:1,newt_eye:1},
-   rare:{id:'grimy_bitterleaf',c:.03}},
+   loot:{table:'herb_low',c:.03}},
   {id:'gob',weak:'ranged',n:'Goblin',lvl:8,hp:18,max:4,spd:2900,xp:36,gp:[5,18],drop:{bones:1,goblin_ash:1},
-   rare:{id:'grimy_bitterleaf',c:.05}},
+   loot:{table:'herb_low',c:.05}},
   {id:'ban',weak:'magic',n:'Bandit',lvl:18,hp:34,max:7,spd:2800,xp:80,gp:[25,70],drop:{bones:1},
-   rare:{id:'grimy_marshroot',c:.05}},
+   loot:{table:'herb_low',c:.05}},
   {id:'wlf',weak:'ranged',n:'Dire wolf',lvl:30,hp:56,max:10,spd:2500,xp:150,gp:[50,120],drop:{pelt:1,bones:1},
-   rare:[{id:'grimy_marshroot',c:.06},{id:'grimy_emberwort',c:.03}]},
+   loot:{table:'herb_mid',c:.09}},
   {id:'trl',weak:'magic',n:'Cave troll',lvl:48,hp:110,max:16,spd:3200,xp:320,gp:[120,300],drop:{big_bones:1,troll_fat:1},
-   rare:[{id:'grimy_emberwort',c:.07},{id:'grimy_sunthistle',c:.035}]},
+   loot:{table:'herb_mid',c:.105}},
   {id:'wra',weak:'ranged',n:'Barrow wraith',lvl:70,hp:190,max:24,spd:2700,xp:640,gp:[280,700],drop:{shard:1,big_bones:1,wraith_dust:1},
-   rare:[{id:'grimy_sunthistle',c:.07},{id:'grimy_frostvein',c:.035}]},
+   loot:{table:'herb_high',c:.105}},
 ];
 
 const STOCK=[
@@ -893,8 +942,8 @@ function tick(dt){
     if(a.in)for(const k in a.in)take(k,a.in[k]);
     if(a.out)for(const k in a.out){add(k,a.out[k]);noteItem(k,a.out[k]);}
     if(a.gp)gainGp(a.gp[0]+Math.floor(Math.random()*(a.gp[1]-a.gp[0]+1)));
-    if(a.rare&&Math.random()<a.rare.c){add(a.rare.id,1);noteItem(a.rare.id,1);
-      if(!gains)toast(`Found ${item(a.rare.id).n}`);}
+    for(const d of rollLoot(a.loot)){add(d.id,d.qty);noteItem(d.id,d.qty);
+      if(!gains)toast(`Found ${d.qty}× ${item(d.id).n}`);}
     grantXp(skill,a.xp);
     rollPet(skill,dur);
     maybeEvent();
@@ -911,9 +960,6 @@ function resetSess(){S.sess={kills:0,gp:0,dealt:0,taken:0,eaten:0,deaths:0,swing
 
 function prayerBonus(){const p=lvl('prayer');return{hit:Math.floor(p/18),soak:Math.floor(p/12)};}
 function allFoes(){return FOES.concat(BOSSES);}
-/* A foe's `rare` may be one {id,c[,n]} or a list of them. Normalising here
-   means the kill handler and the Fight tab read it the same way. */
-function rareTable(f){return f.rare?[].concat(f.rare):[];}
 
 function fightTick(dt,foe){
   if(!foe)return;
@@ -961,12 +1007,10 @@ function fightTick(dt,foe){
         S.sess.gp+=gp;
         const drops=[];
         for(const k in foe.drop){add(k,foe.drop[k]);noteItem(k,foe.drop[k]);drops.push(`${foe.drop[k]}× ${item(k).n}`);}
-        // Rare table. Each entry rolls independently, so a foe can pay out more
-        // than one. These join the normal loot line rather than announcing
+        // Table drops join the normal loot line rather than announcing
         // themselves — noteItem still books them into the offline summary.
-        for(const r of rareTable(foe)){
-          if(Math.random()<r.c){const n=r.n||1;add(r.id,n);noteItem(r.id,n);drops.push(`${n}× ${item(r.id).n}`);}
-        }
+        for(const d of rollLoot(foe.loot)){add(d.id,d.qty);noteItem(d.id,d.qty);
+          drops.push(`${d.qty}× ${item(d.id).n}`);}
         pushLog(`${foe.n} dies — kill ${S.kills[foe.id]}, +${foe.xp} defence xp`,'kill');
         pushLog(`Loot: ${gp} gp${drops.length?', '+drops.join(', '):''}`,'loot');
         if(foe.delve){
@@ -975,9 +1019,9 @@ function fightTick(dt,foe){
           if(S.delve.floor>=d.floors){
             grantXp('slayer',d.bonusXp);
             const bg=gainGp(d.bonusGp);
-            if(Math.random()<d.ringC){add(d.ring,1);noteItem(d.ring,1);
-              pushLog(`${item(d.ring).n} drops!`,'kill');
-              if(gains)gains.uniques=(gains.uniques||0)+1;else toast(`${item(d.ring).n}!`);}
+            for(const u of rollLoot({id:d.ring,c:d.ringC})){add(u.id,u.qty);noteItem(u.id,u.qty);
+              pushLog(`${item(u.id).n} drops!`,'kill');
+              if(gains)gains.uniques=(gains.uniques||0)+1;else toast(`${item(u.id).n}!`);}
             pushLog(`${d.n} cleared — ${fmt(d.bonusXp)} slayer xp, ${fmt(bg)} gp`,'task');
             if(gains)gains.delves=(gains.delves||0)+1;else toast(`${d.n} cleared`);
             S.delve=null;S.act=null;S.foe=null;S.foeHp=0;
@@ -986,10 +1030,11 @@ function fightTick(dt,foe){
         }
         if(foe.boss){
           S.bossKills[foe.id]=(S.bossKills[foe.id]||0)+1;
-          if(Math.random()<foe.unique.c){add(foe.unique.id,1);noteItem(foe.unique.id,1);
-            pushLog(`${item(foe.unique.id).n} drops!`,'kill');
-            if(gains)gains.uniques=(gains.uniques||0)+1;else toast(`${item(foe.unique.id).n}!`);}
-          else pushLog('No unique this time','miss');
+          const uq=rollLoot(foe.unique);
+          for(const u of uq){add(u.id,u.qty);noteItem(u.id,u.qty);
+            pushLog(`${item(u.id).n} drops!`,'kill');
+            if(gains)gains.uniques=(gains.uniques||0)+1;else toast(`${item(u.id).n}!`);}
+          if(!uq.length)pushLog('No unique this time','miss');
           S.act=null;S.foe=null;S.foeHp=0;
           if(!gains)toast(`${foe.n} defeated — spend another sigil to re-enter`);
           return;
@@ -1397,7 +1442,7 @@ function viewFight(){
       <span><span>${f.n}${isTask?' &middot; task':''}</span>
       <span class="meta">${f.hp} hp &middot; hits up to ${f.max} &middot; ${fmt(f.gp[0])}–${fmt(f.gp[1])} gp &middot; killed ${S.kills[f.id]||0}
       ${f.weak?`&middot; <span class="${f.weak===st?'weak':'resist'}">weak to ${f.weak}</span>`:''}
-      ${rareTable(f).map(r=>`&middot; ${(r.c*100).toFixed(1)}% ${item(r.id).n}`).join('')}</span></span>
+      ${[].concat(f.loot||[]).map(r=>`&middot; ${(r.c*100).toFixed(1)}% ${refLabel(r)}`).join('')}</span></span>
       <span class="rt">lv ${f.lvl}<br>${f.xp} xp</span></button>`;
   }
   return h;

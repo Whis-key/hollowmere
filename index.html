@@ -81,6 +81,10 @@
   .row.done{border-color:var(--moss)}
   .row.ready{border-color:var(--gold)}
   .row .grow{flex:1 1 auto;min-width:0}
+  /* The quantity strip can carry six buttons, which will not fit one phone
+     line. It is the one row allowed to wrap; the buttons share the width. */
+  .row.picks{flex-wrap:wrap;gap:6px}
+  .row.picks button.mini{flex:1 1 auto}
   .row .grow b{display:block;font-weight:600}
   .row .grow span{font-size:12px;color:var(--dim)}
   .qty{font-variant-numeric:tabular-nums;color:var(--gold);font-size:16px;flex:0 0 auto}
@@ -197,7 +201,7 @@
 </div></div>
 
 <script>
-const APP_VERSION='5.5';   /* bumped every release; the updater reads this string */
+const APP_VERSION='5.6';   /* bumped every release; the updater reads this string */
 
 /* ------------------------------------------------------------------
    Self-updating. The service worker serves the page network-first, so a
@@ -1434,7 +1438,7 @@ function pickStrip(id,mode,unit,max,note){
   const allLabel=(mode==='sell'||mode==='list')?`All ${fmt(max)}`:`Max ${fmt(max)}`;
   return `<div class="row"><div class="grow"><b>${label} how many?</b>
     <span>${fmt(unit)} gp each &middot; ${note}</span></div></div>
-    <div class="row">${opts.map(q=>`<button class="mini buy" data-pickqty="${q}">${q===max?allLabel:fmt(q)}</button>`).join('')}
+    <div class="row picks">${opts.map(q=>`<button class="mini buy" data-pickqty="${q}">${q===max?allLabel:fmt(q)}</button>`).join('')}
     ${cancel}</div>`;
 }
 

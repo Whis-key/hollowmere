@@ -201,7 +201,7 @@
 </div></div>
 
 <script>
-const APP_VERSION='5.7';   /* bumped every release; the updater reads this string */
+const APP_VERSION='5.8';   /* bumped every release; the updater reads this string */
 
 /* ------------------------------------------------------------------
    Self-updating. The service worker serves the page network-first, so a
@@ -342,7 +342,7 @@ const EQ={
   void_staff:{n:'Void staff',v:16000,slot:'weapon',type:'magic',str:24,spd:2000},
   ring_vigour:{n:'Ring of Vigour',v:26000,slot:'ring',str:6},
   ring_warding:{n:'Ring of Warding',v:34000,slot:'ring',def:18},
-  ring_fortune:{n:'Ring of Fortune',v:60000,slot:'ring',def:4,gold:.25},
+  ring_fortune:{n:'Ring of Fortune',v:60000,slot:'ring',def:4,gold:.25,wealth:1},
   warden_blade:{n:"Warden's blade",v:30000,slot:'weapon',str:40,spd:1800},
   tyrant_plate:{n:'Tyrant platebody',v:48000,slot:'body',def:96},
   hollow_crown:{n:'Crown of Hollowmere',v:120000,slot:'head',def:34,str:12},
@@ -426,9 +426,9 @@ const SKILLS={
   thieving:{n:'Thieving',acts:[
     {id:'p1',n:'Fruit stall',lvl:1,xp:22,dur:5000,gp:[4,14],fail:.30,stun:4000},
     {id:'p2',n:'Silk stall',lvl:20,xp:55,dur:5600,gp:[18,45],fail:.28,stun:5000,out:{silk:1}},
-    {id:'p3',n:'Gem stall',lvl:40,xp:110,dur:6400,gp:[50,130],fail:.26,stun:6000,loot:{table:'gem',c:.025}},
-    {id:'p4',n:'Pickpocket noble',lvl:55,xp:190,dur:7200,gp:[130,320],fail:.24,stun:7000,loot:{table:'gem_rich',c:.035}},
-    {id:'p5',n:'Rob the vault',lvl:75,xp:340,dur:8800,gp:[400,1000],fail:.22,stun:9000,loot:{table:'gem_rich',c:.125}},
+    {id:'p3',n:'Gem stall',lvl:40,xp:110,dur:6400,gp:[50,130],fail:.26,stun:6000,loot:{table:'gem',c:.044}},
+    {id:'p4',n:'Pickpocket noble',lvl:55,xp:190,dur:7200,gp:[130,320],fail:.24,stun:7000,loot:{table:'gem_rich',c:.042}},
+    {id:'p5',n:'Rob the vault',lvl:75,xp:340,dur:8800,gp:[400,1000],fail:.22,stun:9000,loot:{table:'gem_rich',c:.15}},
   ]},
   crafting:{n:'Crafting',acts:[
     {sub:'Leatherwork'},
@@ -567,16 +567,30 @@ const TABLES={
   herb_mid:{n:'Herb table',drops:[
     {id:'grimy_marshroot',w:55},{id:'grimy_emberwort',w:35},{id:'grimy_sunthistle',w:10}]},
   herb_high:{n:'Herb table',drops:[
-    {id:'grimy_emberwort',w:40},{id:'grimy_sunthistle',w:40},{id:'grimy_frostvein',w:20}]},
+    {id:'grimy_emberwort',w:40},{id:'grimy_sunthistle',w:40},{id:'grimy_frostvein',w:18},
+    {table:'gem',w:2}]},
   gem:{n:'Gem table',drops:[
-    {id:'uncut_sapphire',w:60},{id:'uncut_emerald',w:25},{id:'uncut_ruby',w:12},{id:'uncut_diamond',w:3}]},
+    {w:52},                                    // empty slots — the Ring of Fortune removes these
+    {id:'uncut_sapphire',w:60},{id:'uncut_emerald',w:25},{id:'uncut_ruby',w:12},
+    {table:'gem_rich',w:3}]},                  // rare promotion to the better table
   gem_rich:{n:'Rich gem table',drops:[
+    {w:20},
     {id:'uncut_sapphire',w:20},{id:'uncut_emerald',w:35},{id:'uncut_ruby',w:32},{id:'uncut_diamond',w:13}]},
 };
-/* A loot ref is {c, table:'gem'} or {c, id:'thing'[, n]}. A bare item is just a
-   one-entry table, so every drop in the game — monster, boss, dungeon clear,
-   skilling — resolves through the same code path. */
-function refDrops(ref){return ref.table?((TABLES[ref.table]||{drops:[]}).drops):[{id:ref.id,w:1,n:ref.n}];}
+/* A table entry is one of three things:
+     {id,w[,n]}   a real drop
+     {table,w}    a nested roll on another table — this is how a chase item
+                  sits behind two doors instead of one, the way the real game
+                  chains its rare table into the gem table
+     {w}          an empty slot: the table was rolled and paid out nothing
+   Empty slots are entries rather than a smaller access chance on purpose. The
+   Ring of Fortune removes them, and that effect is only expressible if the
+   misses are things sitting on the table that can be taken off it. */
+function ringWealth(){const r=S.equip&&S.equip.ring;return !!(r&&EQ[r]&&EQ[r].wealth);}
+function tableDrops(name){
+  const t=TABLES[name];if(!t)return [];
+  return ringWealth()?t.drops.filter(e=>e.id||e.table):t.drops;
+}
 function refLabel(ref){return ref.table?(TABLES[ref.table]||{n:'?'}).n:item(ref.id).n;}
 function pickWeighted(list){
   let tot=0;for(const e of list)tot+=(e.w||1);
@@ -588,16 +602,23 @@ function rollQty(e){
   if(e.n===undefined)return 1;
   return Array.isArray(e.n)?e.n[0]+Math.floor(Math.random()*(e.n[1]-e.n[0]+1)):e.n;
 }
+function rollTableOnce(name,depth){
+  if(depth>4)return null;                       // guard against a table cycle
+  const list=tableDrops(name);if(!list.length)return null;
+  const e=pickWeighted(list);if(!e)return null;
+  if(e.table)return rollTableOnce(e.table,depth+1);
+  return e.id?{id:e.id,qty:rollQty(e)}:null;    // no id and no table means empty
+}
 /* Roll one ref or a list of them. Each rolls independently at its own chance;
-   a hit picks a single entry from that ref's table. Returns [{id,qty}] and
-   banks nothing, so callers keep control of logging and awarding. */
+   a hit resolves a single outcome, which may be nothing. Returns [{id,qty}]
+   and banks nothing, so callers keep control of logging and awarding. */
 function rollLoot(refs){
   const out=[];
   for(const ref of [].concat(refs||[])){
     if(!ref)continue;
     if(Math.random()>=(ref.c===undefined?1:ref.c))continue;
-    const e=pickWeighted(refDrops(ref));
-    if(e)out.push({id:e.id,qty:rollQty(e)});
+    const d=ref.table?rollTableOnce(ref.table,0):(ref.id?{id:ref.id,qty:rollQty(ref)}:null);
+    if(d)out.push(d);
   }
   return out;
 }
@@ -814,8 +835,32 @@ function listOffer(id,n){
   n=Math.min(n,have(id));if(n<=0)return;
   if((S.offers||[]).length>=GE_SLOTS){toast('No free offer slots');return;}
   take(id,n);unequipIfGone(id);
-  S.offers.push({kind:'sell',id,qty:n,filled:0,price:marketPrice(id)});
+  S.offers.push({uid:offerUid(),kind:'sell',id,qty:n,filled:0,price:marketPrice(id)});
   toast(`Listed ${fmt(n)}× ${item(id).n}`);
+}
+function offerUid(){return 'o'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);}
+/* Offers are addressed by uid, not array index: fillOffers splices completed
+   offers out on a timer, and an index captured when a panel opened would then
+   point at somebody else's offer. */
+function adoptOffers(list){
+  const out=Array.isArray(list)?list:[];
+  for(const o of out)if(!o.uid)o.uid=offerUid();
+  return out;
+}
+/* A buy offer has already paid price*qty up front, so repricing has to settle
+   the difference on whatever is still unfilled — refunding when the bid drops,
+   not just charging when it rises. */
+function repriceOffer(o,price){
+  price=Math.max(1,Math.round(price));
+  if(price===o.price)return true;
+  if(o.kind==='buy'){
+    const delta=(price-o.price)*(o.qty-o.filled);
+    if(delta>0&&S.gp<delta){toast('Not enough gold to raise the bid');return false;}
+    S.gp-=delta;
+  }
+  o.price=price;
+  toast(`Price set to ${fmt(price)} gp`);
+  return true;
 }
 function buyOffer(id,n){
   if((S.offers||[]).length>=GE_SLOTS){toast('No free offer slots');return;}
@@ -827,7 +872,7 @@ function buyOffer(id,n){
   n=Math.min(n,Math.floor(S.gp/price));
   if(n<1){toast('Not enough gold');return;}
   S.gp-=price*n;
-  S.offers.push({kind:'buy',id,qty:n,filled:0,price});
+  S.offers.push({uid:offerUid(),kind:'buy',id,qty:n,filled:0,price});
   toast(`Buying ${fmt(n)}× ${item(id).n}`);
 }
 function shopBuy(id,n){
@@ -1226,7 +1271,7 @@ function adopt(p){
   S.sess=Object.assign(fresh().sess,p.sess||{});
   S.house=Object.assign(fresh().house,p.house||{});
   S.farm=Array.isArray(p.farm)?p.farm:f.farm;
-  S.offers=Array.isArray(p.offers)?p.offers:[];
+  S.offers=adoptOffers(p.offers);
   S.market=p.market||{};S.pets=p.pets||{};
   S.buffs=p.buffs||{};S.bossKills=p.bossKills||{};S.delve=p.delve||null;
   S.patches=p.patches||3;S.bankTier=p.bankTier||0;
@@ -1487,6 +1532,23 @@ function pickStrip(id,mode,unit,max,note){
     ${cancel}</div>`;
 }
 
+/* Price panel for a live offer. Both directions, because the old control only
+   undercut a sale or raised a bid — there was no way back if you overshot.
+   Which direction fills faster depends on the kind, so the hint says so. */
+function priceStrip(o,mkt){
+  if(!(pick&&pick.mode==='price'&&pick.id===o.uid))return '';
+  const left=o.qty-o.filled;
+  const at=p=>Math.max(1,Math.round(o.price*(1+p/100)));
+  const btn=p=>`<button class="mini${p>0?' buy':''}" data-price="${o.uid}:${at(p)}">${p>0?'+':''}${p}%</button>`;
+  const faster=o.kind==='sell'?'lower fills faster':'higher fills faster';
+  return `<div class="row"><div class="grow"><b>Adjust price</b>
+    <span>now ${fmt(o.price)} gp &middot; market ${fmt(mkt)} gp &middot; ${fmt(left)} unfilled &middot; ${faster}${
+      o.kind==='buy'?' &middot; raising costs gold now, lowering refunds':''}</span></div></div>
+    <div class="row picks">${[-25,-10,10,25].map(btn).join('')}
+    <button class="mini" data-price="${o.uid}:${mkt}">Match market</button>
+    <button class="mini" data-pickcancel="1">Cancel</button></div>`;
+}
+
 function viewBank(){
   const used=bankUsed(),cap=bankCap(),pctc=(used/cap)*100;
   const capbar=`<div class="cap"><i class="${pctc>=100?'full':pctc>80?'warn':''}" style="width:${Math.min(100,pctc)}%"></i></div>`;
@@ -1547,8 +1609,8 @@ function viewShop(){
         &middot; <span class="${(o.kind==='sell'?diff<=0:diff>=0)?'up':'down'}">${diff>0?'+':''}${diff}% vs market</span></div>
       <div class="pbar"><i style="width:${pct}%"></i></div>
       <div class="acts">
-        <button class="mini" data-nudge="${i}">${o.kind==='sell'?'Undercut 8%':'Bid +8%'}</button>
-        <button class="mini" data-cancel="${i}">Cancel</button></div></div>`;
+        <button class="mini${pick&&pick.mode==='price'&&pick.id===o.uid?' on':''}" data-pick="price:${o.uid}">Price</button>
+        <button class="mini" data-cancel="${i}">Cancel</button></div>${priceStrip(o,mkt)}</div>`;
   }
   h+=`<h2>Buy materials</h2>`;
   for(const id of BUYABLE){
@@ -1799,7 +1861,7 @@ $('view').addEventListener('click',e=>{
     S.equip=Object.assign(fresh().equip,p.equip||{});
     S.house=Object.assign(fresh().house,p.house||{});
     S.farm=Array.isArray(p.farm)?p.farm:f.farm;
-    S.offers=Array.isArray(p.offers)?p.offers:[];
+    S.offers=adoptOffers(p.offers);
     S.market=p.market||{};S.pets=p.pets||{};
     while(S.farm.length<totalPatches())S.farm.push({crop:null,ms:0});
     S.last=Date.now();
@@ -1807,14 +1869,12 @@ $('view').addEventListener('click',e=>{
     render();save();toast('Save restored');
     return;
   }
-  if(b.dataset.nudge){
-    const o=S.offers[+b.dataset.nudge];if(!o)return;
-    if(o.kind==='sell')o.price=Math.max(1,Math.round(o.price*0.92));
-    else{
-      const extra=Math.round(o.price*0.08)*(o.qty-o.filled);
-      if(S.gp<extra){toast('Not enough gold to raise the bid');return;}
-      S.gp-=extra;o.price=Math.round(o.price*1.08);
-    }
+  if(b.dataset.price){
+    const i=b.dataset.price.lastIndexOf(':');
+    const uid=b.dataset.price.slice(0,i),price=+b.dataset.price.slice(i+1);
+    const o=(S.offers||[]).find(x=>x.uid===uid);
+    if(!o){pick=null;render();return;}          // it filled and closed while the panel was open
+    if(repriceOffer(o,price))pick=null;
     render();save();return;
   }
   if(b.dataset.cancel){

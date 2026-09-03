@@ -197,7 +197,7 @@
 </div></div>
 
 <script>
-const APP_VERSION='5.1';   /* bumped every release; the updater reads this string */
+const APP_VERSION='5.2';   /* bumped every release; the updater reads this string */
 
 /* ------------------------------------------------------------------
    Self-updating. The service worker serves the page network-first, so a
@@ -1512,8 +1512,21 @@ function bodyHtml(){
   return tab==='train'?viewTrain():tab==='fight'?viewFight():tab==='quests'?viewQuests()
     :tab==='bank'?viewBank():viewShop();
 }
+let stashedRestoreText='';
 function repaint(){
   const v=$('view'),y=v.scrollTop;
+  /* The view is rebuilt wholesale with innerHTML, which destroys and
+     recreates every element inside it. Doing that while someone is typing
+     rips the field out from under them: focus is lost, the soft keyboard
+     closes, and any paste menu vanishes. So hold off entirely while a text
+     field is in use, and carry its contents across rebuilds either way. */
+  const ae=document.activeElement;
+  if(ae&&(ae.tagName==='TEXTAREA'||ae.tagName==='INPUT')){
+    if(ae.id==='loadtext')stashedRestoreText=ae.value;
+    return;
+  }
+  const before=document.getElementById('loadtext');
+  if(before)stashedRestoreText=before.value;
   v.querySelectorAll('details.group').forEach(d=>{
     const k=d.querySelector('summary').textContent;
     if(d.open)openGroups.add(k);else openGroups.delete(k);
@@ -1523,6 +1536,8 @@ function repaint(){
     if(openGroups.has(d.querySelector('summary').textContent))d.open=true;
   });
   v.scrollTop=y;
+  const after=document.getElementById('loadtext');
+  if(after&&stashedRestoreText)after.value=stashedRestoreText;
   $('purse').innerHTML=`${fmt(S.gp)} <span>gp</span>`;
   const qb=document.querySelector('nav button[data-tab="quests"]');
   qb.innerHTML='Quests'+(questsReady()?'<span class="pip"></span>':'');
@@ -1617,7 +1632,7 @@ $('view').addEventListener('click',e=>{
   }
   if(b.dataset.restore){
     const ta=document.getElementById('loadtext');
-    const raw=ta&&ta.value.trim();
+    const raw=((ta&&ta.value)||stashedRestoreText||'').trim();
     if(!raw){toast('Paste a save first');return;}
     let p;
     try{p=JSON.parse(raw);}catch(e){toast('That is not valid save data');return;}
@@ -1633,6 +1648,7 @@ $('view').addEventListener('click',e=>{
     S.market=p.market||{};S.pets=p.pets||{};
     while(S.farm.length<totalPatches())S.farm.push({crop:null,ms:0});
     S.last=Date.now();
+    stashedRestoreText='';
     render();save();toast('Save restored');
     return;
   }

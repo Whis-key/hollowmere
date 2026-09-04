@@ -201,7 +201,7 @@
 </div></div>
 
 <script>
-const APP_VERSION='6.1';   /* bumped every release; the updater reads this string */
+const APP_VERSION='6.2';   /* bumped every release; the updater reads this string */
 
 /* ------------------------------------------------------------------
    Self-updating. The service worker serves the page network-first, so a
@@ -343,9 +343,14 @@ const EQ={
   ring_vigour:{n:'Ring of Vigour',v:26000,slot:'ring',str:6},
   ring_warding:{n:'Ring of Warding',v:34000,slot:'ring',def:18},
   ring_fortune:{n:'Ring of Fortune',v:60000,slot:'ring',def:4,gold:.25,wealth:1},
-  warden_blade:{n:"Warden's blade",v:30000,slot:'weapon',str:40,spd:1800},
-  tyrant_plate:{n:'Tyrant platebody',v:48000,slot:'body',def:96},
+  warden_blade:{n:"Warden's blade",v:18000,slot:'weapon',str:40,spd:1800},
+  tyrant_plate:{n:'Tyrant platebody',v:30000,slot:'body',def:96},
   hollow_crown:{n:'Crown of Hollowmere',v:120000,slot:'head',def:34,str:12},
+  /* Endgame drops. These two DO beat the best craftable in their slot, unlike
+     the blade and the platebody above, which are a power spike at their own
+     tier that starsteel later overtakes. */
+  wyrm_aegis:{n:'Wyrmscale aegis',v:40000,slot:'shield',def:95},
+  starless_amulet:{n:'Amulet of the Starless',v:55000,slot:'amulet',str:20,def:21},
 };
 const CAPES={};
 for(const k of ['woodcutting','mining','fishing','firemaking','cooking','smithing','thieving','crafting','prayer','slayer','attack','strength','defence','hitpoints']){
@@ -508,6 +513,12 @@ const BOSSES=[
    drop:{big_bones:3,troll_fat:2},unique:{id:'tyrant_plate',c:.22}},
   {id:'hlk',weak:'melee',n:'The Hollow King',boss:1,req:80,lvl:99,hp:1600,max:44,spd:2200,xp:7500,gp:[7000,16000],
    drop:{shard:2,wraith_dust:3},unique:{id:'hollow_crown',c:.16}},
+  /* First boss to carry more than one unique. The two refs roll independently,
+     so a kill can yield both, either, or neither. */
+  {id:'pro',weak:'magic',n:'The Starless Progenitor',boss:1,req:90,lvl:118,hp:2800,max:58,spd:2100,xp:15000,gp:[14000,32000],
+   drop:{big_bones:5,shard:5,wraith_dust:4},
+   unique:[{id:'wyrm_aegis',c:.15},{id:'starless_amulet',c:.10}],
+   loot:{table:'gem_rich',c:.5}},
 ];
 const DUNGEONS=[
   {id:'vault',n:'The Sunken Vaults',req:30,floors:5,weak:'ranged',
@@ -1470,7 +1481,7 @@ function viewFight(){
     const on=S.act==='fight:'+f.id;
     h+=`<button class="act${on?' on fight':''} boss" ${(locked||(noKey&&!on))?'disabled':''} data-go="fight:${f.id}">
       <span><span>${f.n}</span><span class="meta">${locked?`Needs combat ${f.req} — you are ${cl}`
-        :`${f.hp} hp &middot; hits up to ${f.max} &middot; ${Math.round(f.unique.c*100)}% ${item(f.unique.id).n} &middot; slain ${S.bossKills[f.id]||0}
+        :`${f.hp} hp &middot; hits up to ${f.max} &middot; ${[].concat(f.unique||[]).map(u=>`${Math.round(u.c*100)}% ${refLabel(u)}`).join(' &middot; ')} &middot; slain ${S.bossKills[f.id]||0}
         &middot; <span class="${f.weak===st?'weak':'resist'}">weak to ${f.weak}</span>`}</span></span>
       <span class="rt">lv ${f.lvl}<br>${fmt(f.xp)} xp</span></button>`;
   }

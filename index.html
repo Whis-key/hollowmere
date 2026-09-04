@@ -201,7 +201,7 @@
 </div></div>
 
 <script>
-const APP_VERSION='6.0';   /* bumped every release; the updater reads this string */
+const APP_VERSION='6.1';   /* bumped every release; the updater reads this string */
 
 /* ------------------------------------------------------------------
    Self-updating. The service worker serves the page network-first, so a
@@ -359,7 +359,7 @@ const SLOTS=['weapon','shield','head','body','amulet','ring'];
 /* ============================================================
    ACTIONS
    ============================================================ */
-const g=(id,n,lvl,xp,dur,out,rare)=>({id,n,lvl,xp,dur,out:{[out]:1},rare});
+const g=(id,n,lvl,xp,dur,out,loot)=>({id,n,lvl,xp,dur,out:{[out]:1},loot});
 const SKILLS={
   woodcutting:{n:'Woodcutting',tool:'axe',acts:[
     g('t1','Pine tree',1,25,6000,'pine_logs'), g('t2','Oak tree',15,38,7600,'oak_logs'),
@@ -368,11 +368,11 @@ const SKILLS={
   ]},
   mining:{n:'Mining',tool:'pick',acts:[
     g('m1','Copper vein',1,18,6000,'copper_ore'), g('m2','Tin vein',1,18,6000,'tin_ore'),
-    g('m3','Iron vein',15,35,7600,'iron_ore',{id:'uncut_sapphire',c:.012}),
-    g('m4','Coal seam',30,50,10000,'coal',{id:'uncut_emerald',c:.010}),
-    g('m5','Cobalt vein',50,80,13000,'cobalt_ore',{id:'uncut_ruby',c:.009}),
-    g('m6','Adamant vein',70,140,17000,'adamant_ore',{id:'uncut_diamond',c:.008}),
-    g('m7','Starsteel vein',85,240,22000,'starsteel_ore',{id:'uncut_diamond',c:.02}),
+    g('m3','Iron vein',15,35,7600,'iron_ore',{table:'gem',c:.009}),
+    g('m4','Coal seam',30,50,10000,'coal',{table:'gem',c:.017}),
+    g('m5','Cobalt vein',50,80,13000,'cobalt_ore',{table:'gem',c:.041}),
+    g('m6','Adamant vein',70,140,17000,'adamant_ore',{table:'gem_rich',c:.030}),
+    g('m7','Starsteel vein',85,240,22000,'starsteel_ore',{table:'gem_rich',c:.075}),
   ]},
   fishing:{n:'Fishing',tool:'rod',acts:[
     g('f1','Net minnows',1,20,6400,'raw_minnow'), g('f2','Bait trout',20,45,8400,'raw_trout'),
@@ -640,6 +640,10 @@ const FOES=[
    loot:{table:'herb_high',c:.09}},
   {id:'wra',weak:'ranged',n:'Barrow wraith',lvl:70,hp:190,max:24,spd:2700,xp:640,gp:[280,700],drop:{shard:1,big_bones:1,wraith_dust:1},
    loot:{table:'herb_high',c:.105}},
+  {id:'rev',weak:'melee',n:'Void revenant',lvl:82,hp:240,max:28,spd:2800,xp:860,gp:[420,980],drop:{shard:2,big_bones:2},
+   loot:{table:'herb_high',c:.11}},
+  {id:'wyr',weak:'magic',n:'Starless wyrm',lvl:92,hp:290,max:31,spd:2700,xp:1090,gp:[560,1250],drop:{shard:3,big_bones:3,wraith_dust:2},
+   loot:[{table:'herb_high',c:.12},{table:'gem_rich',c:.03}]},
 ];
 
 const STOCK=[

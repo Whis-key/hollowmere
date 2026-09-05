@@ -16,11 +16,9 @@ Running document. Updated as decisions are made, not as work is finished.
 
 ---
 
-## Working agreements
+## Conventions
 
 - Ship in **stages**, each one small enough to test on its own. No big-bang drops.
-- **Discuss design decisions before building them.** Numbers and structure get agreed
-  first; implementation follows.
 - Every stage bumps `APP_VERSION` so the in-app updater sees it.
 - `LOOT.md` is generated, never hand-edited — run `node loot-sheet.js index.html > LOOT.md`
   after any change to drops, tables, monsters or gear.
@@ -108,7 +106,7 @@ pieces. It does not need the server work.
 
 ## Next
 
-1. **Fourth dungeon (6.3).** Needs its own conversation first — dungeons only drop rings,
+1. **Fourth dungeon (6.3).** Undecided — dungeons only drop rings,
    and there are already three rings for one slot. What should a dungeon give?
 2. **Quests and the achievement diary, together.** They share `questState()`'s requirement
    checks, so building them in one pass avoids two requirement engines that drift apart.
@@ -121,9 +119,13 @@ pieces. It does not need the server work.
   items** — 1.20x and 1.25x, down from 2.00x. A strict value-tracks-power price would be
   12,500 and 21,500. Left at 18,000 and 30,000 pending a decision on how much the boss
   gold faucet should be cut.
-- **Potion strength does not apply to ranged or magic.** `maxHitFor` gates `buffTotal('str')`
-  behind `st==='melee'`, while gear and ammo strength apply to every style. Looks like an
-  oversight; fixing it is a straight buff to two styles.
+- **Potion strength is melee-only, and that is deliberate.** `maxHitFor` gates
+  `buffTotal('str')` behind `st==='melee'` while gear and ammo strength apply to every
+  style, which reads like an oversight. It is load-bearing. At level 99 with best gear and
+  prayer, max hits are melee 36 (potted), ranged 38, magic 36 — within two points. Remove
+  the gate and it becomes melee 36, ranged 41, magic 38, making ranged clearly best and
+  melee worst, because ranged already gets +56 from Starsteel arrows on top of its bow.
+  Do not "fix" this in isolation; it only moves if all three styles are rebalanced together.
 - **Melee has no weak-to target above level 39** among regular foes.
 - **Smithing 92–99 has no content**, and neither does crafting above 70.
 - **Copper and tin have no loot ref.** Consistent with low-tier thieving, but worth a

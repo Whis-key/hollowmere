@@ -147,6 +147,7 @@ for (const f of FOES.concat(BOSSES)) {
   const t = [].concat(f.loot || []).concat(f.unique || []).map(refName).join(', ') || '—';
   L.push(`| ${f.n} | ${f.lvl} | ${f.weak} | ${f.hp} | ${f.max} | ${(f.spd / 1000).toFixed(1)}s | ${f.xp} | ${f.gp[0]}–${f.gp[1]} | ${g2} | ${t} |`);
 }
-L.push(``);
 
+// No trailing blank line — console.log already adds the final newline, and an
+// extra one shows up as a spurious diff every time the sheet is regenerated.
 console.log(L.join('\n'));

@@ -201,7 +201,7 @@
 </div></div>
 
 <script>
-const APP_VERSION='6.2';   /* bumped every release; the updater reads this string */
+const APP_VERSION='6.3';   /* bumped every release; the updater reads this string */
 
 /* ------------------------------------------------------------------
    Self-updating. The service worker serves the page network-first, so a
@@ -523,21 +523,36 @@ const BOSSES=[
 const DUNGEONS=[
   {id:'vault',n:'The Sunken Vaults',req:30,floors:5,weak:'ranged',
    tmpl:{lvl:26,hp:48,max:9,spd:2700,xp:130,gp:[40,110],drop:{bones:1,newt_eye:1}},step:.30,
-   bonusXp:1000,bonusGp:1000,ring:'ring_vigour',ringC:.20},
+   bonusXp:1000,bonusGp:1000,ring:'ring_vigour',ringC:.20,deepDmg:1.0,deepPen:.014},
   {id:'ember',n:'Emberdeep',req:50,floors:7,weak:'magic',
    tmpl:{lvl:46,hp:105,max:16,spd:2900,xp:310,gp:[130,330],drop:{big_bones:1,troll_fat:1}},step:.28,
-   bonusXp:5800,bonusGp:6500,ring:'ring_warding',ringC:.17},
+   bonusXp:5800,bonusGp:6500,ring:'ring_warding',ringC:.17,deepDmg:.10,deepPen:.050},
   {id:'spire',n:'The Hollow Spire',req:70,floors:10,weak:'melee',
    tmpl:{lvl:68,hp:210,max:22,spd:2600,xp:700,gp:[320,820],drop:{wraith_dust:1,big_bones:2}},step:.26,
-   bonusXp:30000,bonusGp:32000,ring:'ring_fortune',ringC:.14},
+   bonusXp:30000,bonusGp:32000,ring:'ring_fortune',ringC:.14,deepDmg:.10,deepPen:.022},
 ];
+/* Floors past d.floors are "deep" — an optional gauntlet after the clear.
+   Fixed floors: level growth is deliberately gentle. The old 0.55 pushed foe
+   level past the point where hit chance pins at its 0.25 floor, which is what
+   made late floors take four minutes a kill and locked entry-level players out
+   of the dungeon they were allowed to enter.
+   Deep floors get a different SHAPE, not just bigger numbers: far fewer hit
+   points than the clear floor so kills stay quick, and rising damage plus
+   armour penetration so the run ends in death rather than boredom.
+   Penetration is player-relative, which is what makes the risk ramp smoothly
+   instead of waiting for raw damage to clear a flat armour threshold. */
 function delveFoe(d,floor){
   const t=d.tmpl;
-  const m =1+floor*d.step;          // health and reward scale fully
-  const md=1+floor*d.step*0.45;     // damage scales far slower — deep floors stay survivable
-  const ml=1+floor*d.step*0.55;     // level scales in between
-  return{id:d.id+'#'+floor,delve:1,n:`${d.n} · floor ${floor+1}/${d.floors}`,weak:d.weak,
-    lvl:Math.round(t.lvl*ml),hp:Math.round(t.hp*m),max:Math.round(t.max*md),spd:t.spd,
+  const deep=Math.max(0,floor-d.floors+1);
+  const base=Math.min(floor,d.floors-1);
+  const clearM=1+(d.floors-1)*d.step;
+  const m  = deep? clearM*0.30+deep*d.step*0.06 : 1+base*d.step;
+  const md = 1+base*d.step*0.30+deep*d.step*(d.deepDmg||0);
+  const ml = 1+base*d.step*0.24-deep*0.03;
+  return{id:d.id+'#'+floor,delve:1,deep,
+    n:deep?`${d.n} · depth ${deep}`:`${d.n} · floor ${floor+1}/${d.floors}`,weak:d.weak,
+    lvl:Math.max(1,Math.round(t.lvl*ml)),hp:Math.max(1,Math.round(t.hp*m)),
+    max:Math.round(t.max*md),spd:t.spd,pen:Math.min(.9,deep*(d.deepPen||0)),
     xp:Math.round(t.xp*m),gp:[Math.round(t.gp[0]*m),Math.round(t.gp[1]*m)],drop:t.drop};
 }
 const ROOMS=[
@@ -738,7 +753,7 @@ function fresh(){
     kills:{},quests:{},task:null,capes:{},log:[],
     sess:{kills:0,gp:0,dealt:0,taken:0,eaten:0,deaths:0,swings:0,hits:0},
     farm:[{crop:null,ms:0},{crop:null,ms:0},{crop:null,ms:0}],patches:3,
-    buffs:{},bankTier:0,bossKills:{},delve:null,
+    buffs:{},bankTier:0,bossKills:{},delve:null,deepest:{},
     house:{altar:0,workshop:0,garden:0,kitchen:0,storeroom:0,trophy:0},
     market:{},offers:[],geMs:0,pets:{},started:Date.now(),played:0,last:Date.now()};
 }
@@ -1096,15 +1111,32 @@ function fightTick(dt,foe){
         if(foe.delve){
           const d=DUNGEONS.find(x=>x.id===foe.id.split('#')[0]);
           S.delve.floor++;
-          if(S.delve.floor>=d.floors){
+          const deep=S.delve.floor-d.floors;
+          if(deep===0){
+            // The fixed clear pays out exactly as it always has. The run no
+            // longer ends here — you choose whether to push on.
             grantXp('slayer',d.bonusXp);
             const bg=gainGp(d.bonusGp);
             for(const u of rollLoot({id:d.ring,c:d.ringC})){add(u.id,u.qty);noteItem(u.id,u.qty);
               pushLog(`${item(u.id).n} drops!`,'kill');
               if(gains)gains.uniques=(gains.uniques||0)+1;else toast(`${item(u.id).n}!`);}
-            pushLog(`${d.n} cleared — ${fmt(d.bonusXp)} slayer xp, ${fmt(bg)} gp`,'task');
+            pushLog(`${d.n} cleared — ${fmt(d.bonusXp)} slayer xp, ${fmt(bg)} gp. Descend deeper, or leave to bank the haul.`,'task');
             if(gains)gains.delves=(gains.delves||0)+1;else toast(`${d.n} cleared`);
-            S.delve=null;S.act=null;S.foe=null;S.foeHp=0;
+          }else if(deep>0){
+            // Deep floors pay into a haul rather than the bank. Leaving keeps
+            // it; dying loses the lot. Rising per floor, so depth compounds.
+            S.delve.haulGp=(S.delve.haulGp||0)+Math.round(d.bonusGp*0.009*deep);
+            S.delve.haulXp=(S.delve.haulXp||0)+Math.round(d.bonusXp*0.009*deep);
+            if(deep>(S.deepest[d.id]||0)){
+              S.deepest[d.id]=deep;
+              pushLog(`New record — depth ${deep} in ${d.n}`,'task');
+            }
+            if(deep%5===0){
+              for(const u of rollLoot({id:d.ring,c:d.ringC})){add(u.id,u.qty);noteItem(u.id,u.qty);
+                pushLog(`${item(u.id).n} drops!`,'kill');
+                if(gains)gains.uniques=(gains.uniques||0)+1;else toast(`${item(u.id).n}!`);}
+            }
+            pushLog(`Depth ${deep} — haul now ${fmt(S.delve.haulGp)} gp, ${fmt(S.delve.haulXp)} slayer xp`,'task');
           }else pushLog(`Descending to floor ${S.delve.floor+1} of ${d.floors}`,'task');
           return;
         }
@@ -1136,7 +1168,8 @@ function fightTick(dt,foe){
   while(S.foeTimer>=foe.spd&&guard++<600){
     S.foeTimer-=foe.spd;
     const raw=Math.floor(Math.random()*(foe.max+1));
-    const blocked=Math.floor((G.def+buffTotal('def'))/8)+P.soak;
+    // Deep delve foes ignore a share of armour; everything else has pen 0.
+    const blocked=Math.floor((Math.floor((G.def+buffTotal('def'))/8)+P.soak)*(1-(foe.pen||0)));
     let dmg=raw-blocked;
     if(dmg>0){
       S.hp-=dmg;S.sess.taken+=dmg;
@@ -1146,7 +1179,12 @@ function fightTick(dt,foe){
       if(S.hp<=0){
         const lost=Math.floor(S.gp*.15);S.gp-=lost;S.hp=maxHp();S.act=null;S.foe=null;
         S.sess.deaths++;
-        if(S.delve){pushLog(`Run ended on floor ${S.delve.floor+1} — completion bonus forfeit`,'dead');S.delve=null;}
+        if(S.delve){
+          const h=S.delve.haulGp||0;
+          pushLog(h?`Run ended at depth ${S.delve.floor-DUNGEONS.find(x=>x.id===S.delve.id).floors} — ${fmt(h)} gp haul lost`
+                   :`Run ended on floor ${S.delve.floor+1} — completion bonus forfeit`,'dead');
+          S.delve=null;
+        }
         if(gains)gains.died=true;else pushLog(`You died to ${foe.n}. Lost ${lost} gp.`,'dead');
         return;
       }
@@ -1308,7 +1346,7 @@ function adopt(p){
   S.farm=Array.isArray(p.farm)?p.farm:f.farm;
   S.offers=adoptOffers(p.offers);
   S.market=p.market||{};S.pets=p.pets||{};
-  S.buffs=p.buffs||{};S.bossKills=p.bossKills||{};S.delve=p.delve||null;
+  S.buffs=p.buffs||{};S.bossKills=p.bossKills||{};S.delve=p.delve||null;S.deepest=p.deepest||{};
   S.patches=p.patches||3;S.bankTier=p.bankTier||0;
   S.geMs=p.geMs||0;S.played=p.played||0;S.started=p.started||Date.now();
   while(S.farm.length<totalPatches())S.farm.push({crop:null,ms:0});
@@ -1488,8 +1526,15 @@ function viewFight(){
   h+=`<h2>Dungeons</h2>`;
   if(S.delve){
     const d=DUNGEONS.find(x=>x.id===S.delve.id);
-    h+=`<div class="task"><b>In ${d.n}</b> — floor ${S.delve.floor+1} of ${d.floors}
-      <div style="margin-top:6px;font-size:12px;color:var(--dim)">Dying forfeits the completion bonus. Floors do not heal you.</div></div>`;
+    const deep=S.delve.floor-d.floors;
+    if(deep>=0){
+      h+=`<div class="task"><b>In ${d.n}</b> — cleared, at depth ${deep}
+        <div style="margin-top:6px;font-size:12px;color:var(--dim)">Haul ${fmt(S.delve.haulGp||0)} gp and ${fmt(S.delve.haulXp||0)} slayer xp, banked when you leave and lost if you die.
+        Deep foes are frenzied: lower level so you land more hits, but they hit far harder and cut through armour. Ring roll every 5 depths. Best here: depth ${S.deepest[d.id]||0}.</div></div>`;
+    }else{
+      h+=`<div class="task"><b>In ${d.n}</b> — floor ${S.delve.floor+1} of ${d.floors}
+        <div style="margin-top:6px;font-size:12px;color:var(--dim)">Dying forfeits the completion bonus. Floors do not heal you.</div></div>`;
+    }
   }
   for(const d of DUNGEONS){
     const cl=combatLvl(),locked=cl<d.req,on=S.delve&&S.delve.id===d.id;
@@ -1922,7 +1967,14 @@ $('view').addEventListener('click',e=>{
   if(b.dataset.delve){
     const d=DUNGEONS.find(x=>x.id===b.dataset.delve);if(!d)return;
     if(combatLvl()<d.req){toast(`Needs combat ${d.req}`);return;}
-    if(S.delve&&S.delve.id===d.id){S.delve=null;S.act=null;S.foe=null;toast('Left the dungeon');}
+    if(S.delve&&S.delve.id===d.id){
+      const hg=S.delve.haulGp||0,hx=S.delve.haulXp||0;
+      if(hg||hx){gainGp(hg);grantXp('slayer',hx);
+        pushLog(`Left ${d.n} with ${fmt(hg)} gp and ${fmt(hx)} slayer xp`,'task');
+        toast(`Banked ${fmt(hg)} gp`);}
+      else toast('Left the dungeon');
+      S.delve=null;S.act=null;S.foe=null;
+    }
     else{S.delve={id:d.id,floor:0};S.act='delve:'+d.id;S.foe=null;S.foeHp=0;S.prog=0;
       resetSess();pushLog(`Entered ${d.n}`,'task');}
     render();save();return;

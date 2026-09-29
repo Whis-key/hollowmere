@@ -201,7 +201,7 @@
 </div></div>
 
 <script>
-const APP_VERSION='6.4';   /* bumped every release; the updater reads this string */
+const APP_VERSION='6.5';   /* bumped every release; the updater reads this string */
 
 /* ------------------------------------------------------------------
    Self-updating. The service worker serves the page network-first, so a
@@ -1324,6 +1324,8 @@ function showCatchUp(r){
   if(r.trades)li.push(`<li>${r.trades} market offer${r.trades>1?'s':''} completed</li>`);
   for(const pn of (r.pets||[]))li.push(`<li><b>Pet found: ${pn}</b></li>`);
   if(r.retreated)li.push(`<li>Retreated from combat — you ran out of food</li>`);
+  if(r.haulGp)li.push(`<li>Left a dungeon with ${fmt(r.haulGp)} gp of haul banked</li>`);
+  if(r.haulLost)li.push(`<li><b>Died deep — ${fmt(r.haulLost)} gp of dungeon haul lost</b></li>`);
   if(r.delves)li.push(`<li>${r.delves} dungeon${r.delves>1?'s':''} cleared</li>`);
   if(r.uniques)li.push(`<li><b>${r.uniques} boss unique dropped</b></li>`);
   if(r.events)li.push(`<li>${r.events} chance encounter${r.events>1?'s':''}</li>`);

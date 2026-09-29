@@ -201,7 +201,7 @@
 </div></div>
 
 <script>
-const APP_VERSION='6.3';   /* bumped every release; the updater reads this string */
+const APP_VERSION='6.4';   /* bumped every release; the updater reads this string */
 
 /* ------------------------------------------------------------------
    Self-updating. The service worker serves the page network-first, so a
@@ -541,6 +541,19 @@ const DUNGEONS=[
    armour penetration so the run ends in death rather than boredom.
    Penetration is player-relative, which is what makes the risk ramp smoothly
    instead of waiting for raw damage to clear a flat armour threshold. */
+/* Every way of leaving a delve ALIVE banks the haul; only dying forfeits it.
+   Routing all of them through here matters because there are four: the dungeon
+   button, running out of food, starting some other activity, and going offline. */
+function bankDelve(why){
+  if(!S.delve)return 0;
+  const hg=S.delve.haulGp||0,hx=S.delve.haulXp||0;
+  if(hg)gainGp(hg);
+  if(hx)grantXp('slayer',hx);
+  if(gains){if(hg||hx)gains.haulGp=(gains.haulGp||0)+hg;}
+  else if(hg||hx)pushLog(`${why} — banked ${fmt(hg)} gp and ${fmt(hx)} slayer xp`,'task');
+  S.delve=null;
+  return hg;
+}
 function delveFoe(d,floor){
   const t=d.tmpl;
   const deep=Math.max(0,floor-d.floors+1);
@@ -1112,6 +1125,18 @@ function fightTick(dt,foe){
           const d=DUNGEONS.find(x=>x.id===foe.id.split('#')[0]);
           S.delve.floor++;
           const deep=S.delve.floor-d.floors;
+          // Descending past the clear is a deliberate choice, so offline
+          // catch-up must not keep making it for you — it would push until
+          // something killed you and the haul would go with it.
+          if(gains&&deep>=0){
+            if(deep===0){grantXp('slayer',d.bonusXp);gainGp(d.bonusGp);
+              for(const u of rollLoot({id:d.ring,c:d.ringC})){add(u.id,u.qty);noteItem(u.id,u.qty);
+                gains.uniques=(gains.uniques||0)+1;}
+              gains.delves=(gains.delves||0)+1;}
+            bankDelve('Left the dungeon');
+            S.act=null;S.foe=null;S.foeHp=0;
+            return;
+          }
           if(deep===0){
             // The fixed clear pays out exactly as it always has. The run no
             // longer ends here — you choose whether to push on.
@@ -1183,6 +1208,7 @@ function fightTick(dt,foe){
           const h=S.delve.haulGp||0;
           pushLog(h?`Run ended at depth ${S.delve.floor-DUNGEONS.find(x=>x.id===S.delve.id).floors} — ${fmt(h)} gp haul lost`
                    :`Run ended on floor ${S.delve.floor+1} — completion bonus forfeit`,'dead');
+          gains&&(gains.haulLost=(gains.haulLost||0)+(S.delve.haulGp||0));
           S.delve=null;
         }
         if(gains)gains.died=true;else pushLog(`You died to ${foe.n}. Lost ${lost} gp.`,'dead');
@@ -1196,7 +1222,7 @@ function fightTick(dt,foe){
         S.act=null;S.foe=null;
         pushLog('Out of food — retreated before dying','dead');
         if(gains)gains.retreated=true;else toast('Retreated — no food left');
-        if(S.delve)S.delve=null;
+        bankDelve('Retreated');
         return;
       }
     }else if(raw>0){
@@ -1850,6 +1876,7 @@ $('view').addEventListener('click',e=>{
         take('boss_sigil',1);S.foe=null;S.foeHp=0;
         pushLog(`Sigil spent — entering ${bf.n}`,'task');
       }
+      if(S.delve&&key!==S.act)bankDelve('Left the dungeon');
       if(key.startsWith('fight')&&S.act!==key)resetSess();
       S.act=key;S.prog=0;S.stun=0;if(!key.startsWith('fight'))S.foe=null;
     }
@@ -1968,12 +1995,9 @@ $('view').addEventListener('click',e=>{
     const d=DUNGEONS.find(x=>x.id===b.dataset.delve);if(!d)return;
     if(combatLvl()<d.req){toast(`Needs combat ${d.req}`);return;}
     if(S.delve&&S.delve.id===d.id){
-      const hg=S.delve.haulGp||0,hx=S.delve.haulXp||0;
-      if(hg||hx){gainGp(hg);grantXp('slayer',hx);
-        pushLog(`Left ${d.n} with ${fmt(hg)} gp and ${fmt(hx)} slayer xp`,'task');
-        toast(`Banked ${fmt(hg)} gp`);}
-      else toast('Left the dungeon');
-      S.delve=null;S.act=null;S.foe=null;
+      const hg=bankDelve(`Left ${d.n}`);
+      toast(hg?`Banked ${fmt(hg)} gp`:'Left the dungeon');
+      S.act=null;S.foe=null;
     }
     else{S.delve={id:d.id,floor:0};S.act='delve:'+d.id;S.foe=null;S.foeHp=0;S.prog=0;
       resetSess();pushLog(`Entered ${d.n}`,'task');}

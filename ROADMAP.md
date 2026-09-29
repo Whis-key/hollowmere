@@ -49,6 +49,24 @@ it drops. This is what gives bosses a reason to exist past smithing 90.
 **`FOES` stays sorted by level.** The slayer fallback slices the top three eligible foes
 and assumes ordering.
 
+**Dungeons are endless past their fixed floors.** The fixed clear pays out exactly as it
+always did; descending further is a choice. Deep floors are a gauntlet, not more grind:
+foes drop to ~30% of the clear floor's hit points, their level eases so hits land, and
+their damage climbs while they gain armour penetration. Penetration is player-relative,
+which is what makes risk ramp smoothly instead of waiting for raw damage to clear a flat
+armour threshold. Per-dungeon `deepDmg`/`deepPen` are tuned so a maxed player reaches
+~depth 25 in all three and an entry-level player 2-5.
+
+**A deep run's haul is banked by leaving alive and lost only by dying.** There are four
+ways out — the dungeon button, running out of food, starting another activity, and going
+offline — and all four route through `bankDelve()`. Offline catch-up never descends past
+the clear, since going deeper is a decision the player makes.
+
+**Fixed-floor level scaling stays gentle (`0.24`).** The old `0.55` pushed foe level past
+the point where hit chance pins at its 0.25 floor, which made late floors take minutes a
+kill and left the Hollow Spire at 0% clearable for a player at its own combat-70
+requirement.
+
 ---
 
 ## PVP foundation — read before writing new combat code
@@ -101,17 +119,23 @@ pieces. It does not need the server work.
 | 6.0 | Bog ghast (39) and Ember shade (60); herblore secondary supply fixed |
 | 6.1 | Post-70 foes; fixed five mining gem drops dead since 5.7 |
 | 6.2 | The Starless Progenitor, Wyrmscale aegis, Amulet of the Starless, repricing |
+| 6.3 | Endless dungeons; fixed-floor curve rebuilt, Hollow Spire now clearable at its requirement |
+| 6.4 | Delve exits unified — switching activity no longer dodges the risk, retreat keeps the haul |
+| 6.5 | Offline summary reports banked and lost dungeon haul |
 
 ---
 
 ## Next
 
-1. **Fourth dungeon (6.3).** Undecided — dungeons only drop rings,
-   and there are already three rings for one slot. What should a dungeon give?
+1. **Rename pass for borrowed terms.** `Herblore`, `Runecrafting`, `Grand Exchange` and
+   `Barrow wraith` are coined RuneScape names rather than ordinary words. Display strings
+   only — skill keys live in saves, the `n` values do not, so nothing breaks.
 2. **Quests and the achievement diary, together.** They share `questState()`'s requirement
    checks, so building them in one pass avoids two requirement engines that drift apart.
    Both want the content to exist first, which it now largely does.
 3. **More quests** — the current seven are thin for the amount of content behind them.
+4. **A fourth dungeon was considered and dropped.** Dungeons only drop rings, and three
+   already compete for one slot. Endless depth replaced it as the repeatable endgame.
 
 ## Open items
 
@@ -126,7 +150,10 @@ pieces. It does not need the server work.
   the gate and it becomes melee 36, ranged 41, magic 38, making ranged clearly best and
   melee worst, because ranged already gets +56 from Starsteel arrows on top of its bow.
   Do not "fix" this in isolation; it only moves if all three styles are rebalanced together.
-- **Melee has no weak-to target above level 39** among regular foes.
-- **Smithing 92–99 has no content**, and neither does crafting above 70.
+- **Smithing 92–99 has no content**, and neither does crafting above 70. Proposed: a sixth
+  tool tier at smithing 95 built from starsteel bars and void shards — shards have one
+  consumer (a single quest) against a growing supply — and a crafting-82 amulet between
+  diamond and the Amulet of the Starless. Neither is combat gear above starsteel, so both
+  respect the boss-endgame rule.
 - **Copper and tin have no loot ref.** Consistent with low-tier thieving, but worth a
   decision.

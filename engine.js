@@ -608,20 +608,20 @@ function finishTask(){
    and the progress text on screen.
    meets() and reqParts() read the state they are handed rather than S, per the
    PVP-foundation rule: a requirement should be checkable against any player.
-   Types are checked and listed in the order below. The first three are the
-   originals and must stay first and in this order — the quest screen shows them
-   that way. lvl is deliberately unclamped ("Mining 45/20"), matching how the
-   screen has always shown levels; kills and items cap at the target. */
+   Types are checked and listed in the order below, so a requirement always reads
+   the same way on screen. Progress caps at the target; a type with fmt words
+   itself instead of showing a count. */
 const REQ_TYPES={
-  lvl:    {cur:(st,k)=>lvlFor((st.xp||{})[k]||0),       name:k=>label(k),  clamp:false},
+  lvl:    {cur:(st,k)=>lvlFor((st.xp||{})[k]||0),       name:k=>label(k)},
   kills:  {cur:(st,k)=>(st.kills||{})[k]||0,             name:k=>(allFoes().find(f=>f.id===k)||{n:k}).n},
   items:  {cur:(st,k)=>(st.bank||{})[k]||0,              name:k=>item(k).n, handIn:true},   // consumed on claim
   total:  {cur:st=>ALL_SKILLS.reduce((n,k)=>n+lvlFor((st.xp||{})[k]||0),0), name:()=>'Total level', single:true},
-  bosses: {cur:(st,k)=>(st.bossKills||{})[k]||0,         name:k=>(BOSSES.find(b=>b.id===k)||{n:k}).n},
-  cleared:{cur:(st,k)=>(st.cleared||{})[k]||0,           name:k=>(DUNGEONS.find(d=>d.id===k)||{n:k}).n+' clears'},
+  bosses: {cur:(st,k)=>(st.bossKills||{})[k]||0,         name:k=>'Defeat '+(BOSSES.find(b=>b.id===k)||{n:k}).n},
+  cleared:{cur:(st,k)=>(st.cleared||{})[k]||0,           name:k=>'Clear '+(DUNGEONS.find(d=>d.id===k)||{n:k}).n},
   depth:  {cur:(st,k)=>(st.deepest||{})[k]||0,           name:k=>(DUNGEONS.find(d=>d.id===k)||{n:k}).n+' depth'},
-  quests: {cur:(st,k)=>(st.quests||{})[k]?1:0,           name:k=>(QUESTS.find(q=>q.id===k)||{n:k}).n},
-  have:   {cur:(st,k)=>(st.bank||{})[k]||0,              name:k=>item(k).n},                // held, never consumed
+  quests: {cur:(st,k)=>(st.quests||{})[k]?1:0,           name:k=>(QUESTS.find(q=>q.id===k)||{n:k}).n,
+           fmt:(nm,c)=>c?'✓ '+nm:'After '+nm},
+  have:   {cur:(st,k)=>(st.bank||{})[k]||0,              name:k=>'Own '+item(k).n},         // held, never consumed
   made:   {cur:(st,k)=>(st.made||{})[k]||0,              name:k=>item(k).n+' made'},
 };
 function reqEntries(req){
@@ -636,8 +636,8 @@ function reqEntries(req){
 }
 function meets(req,st){return reqEntries(req).every(e=>e.T.cur(st,e.k)>=e.need);}
 function reqParts(req,st){
-  return reqEntries(req).map(e=>{const c=e.T.cur(st,e.k);
-    return `${e.T.name(e.k)} ${e.T.clamp===false?c:Math.min(c,e.need)}/${e.need}`;});
+  return reqEntries(req).map(e=>{const c=e.T.cur(st,e.k),nm=e.T.name(e.k);
+    return e.T.fmt?e.T.fmt(nm,c,e.need):`${nm} ${Math.min(c,e.need)}/${e.need}`;});
 }
 // Claiming is a local action on the player's own save, so this one does use S.
 function handIn(req){for(const e of reqEntries(req))if(e.T.handIn)take(e.k,e.need);}
@@ -656,6 +656,16 @@ function claimQuest(q){
   if(q.reward.gp)S.gp+=q.reward.gp;
   S.quests[q.id]=1;
   toast(`Quest complete — ${q.n}`);
+  awardCloak();
+}
+/* Awarded when the last quest is claimed, once. If the bank has no free slot
+   at that moment the flag is not set, and the Quests tab offers the cloak again
+   rather than losing it. */
+function awardCloak(){
+  if(S.capes.quests||!QUESTS.every(x=>S.quests[x.id]))return false;
+  if(!add('wayfarer_cloak',1)){toast("Free a bank slot to receive the Wayfarer's cloak");return false;}
+  S.capes.quests=1;toast("Every quest complete — Wayfarer's cloak earned");
+  return true;
 }
 function questsReady(){return QUESTS.some(q=>questState(q)==='ready');}
 

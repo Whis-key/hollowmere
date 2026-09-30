@@ -192,20 +192,37 @@ function viewFight(){
   return h;
 }
 
-function viewQuests(){
-  let h=`<h2>Quests</h2>`;
-  for(const q of QUESTS){
-    const st=questState(q);
-    const parts=reqParts(q.need,S);
-    const rw=[];
-    if(q.reward.xp)for(const k in q.reward.xp)rw.push(`${fmt(q.reward.xp[k])} ${label(k).toLowerCase()} xp`);
-    if(q.reward.items)for(const k in q.reward.items)rw.push(item(k).n);
-    if(q.reward.gp)rw.push(`${fmt(q.reward.gp)} gp`);
-    h+=`<div class="row ${st}"><div class="grow"><b>${q.n}</b>
+const QUEST_BANDS=[['novice','Novice'],['adept','Adept'],['veteran','Veteran'],['master','Master']];
+function questRow(q){
+  const st=questState(q);
+  const parts=reqParts(q.need,S);
+  const rw=[];
+  if(q.reward.xp)for(const k in q.reward.xp)rw.push(`${fmt(q.reward.xp[k])} ${label(k).toLowerCase()} xp`);
+  if(q.reward.items)for(const k in q.reward.items){const n=q.reward.items[k];rw.push(`${n>1?fmt(n)+'× ':''}${item(k).n}`);}
+  if(q.reward.gp)rw.push(`${fmt(q.reward.gp)} gp`);
+  return `<div class="row ${st}"><div class="grow"><b>${q.n}</b>
       <span>${st==='done'?'Completed':q.blurb}<br>${st==='done'?'':parts.join(' &middot; ')}
       <br>Reward: ${rw.join(', ')}</span></div>
       ${st==='done'?'':`<button class="mini buy" data-quest="${q.id}" ${st==='ready'?'':'disabled'}>${st==='ready'?'Claim':'…'}</button>`}
     </div>`;
+}
+function viewQuests(){
+  const done=QUESTS.filter(q=>S.quests[q.id]).length;
+  let h=`<h2>Quests &middot; ${done} / ${QUESTS.length}</h2>`;
+  if(S.capes.quests)h+=`<div class="row done"><div class="grow"><b>Wayfarer's cloak</b><span>Every quest complete</span></div></div>`;
+  else if(done===QUESTS.length)h+=`<div class="row ready"><div class="grow"><b>Wayfarer's cloak</b><span>Every quest complete — free a bank slot to take it</span></div><button class="mini buy" data-cloak="1">Claim</button></div>`;
+  else h+=`<div class="empty">Finish every quest to earn the Wayfarer's cloak.</div>`;
+  // A band opens by default if it has a quest ready, or if it is the lowest one
+  // with work left. After that the player's own open/closed choice sticks, via
+  // the data-key that repaint() uses to carry state across rebuilds.
+  let firstOpen=false;
+  for(const [b,nm] of QUEST_BANDS){
+    const qs=QUESTS.filter(q=>q.band===b);if(!qs.length)continue;
+    const d=qs.filter(q=>S.quests[q.id]).length,r=qs.filter(q=>questState(q)==='ready').length;
+    let open=r>0;if(!firstOpen&&d<qs.length){open=true;firstOpen=true;}
+    h+=`<details class="group" data-key="quests-${b}"${open?' open':''}><summary>${nm}<span class="lv num">${d}/${qs.length}${r?` &middot; ${r} ready`:''}</span></summary>`;
+    for(const q of qs)h+=questRow(q);
+    h+=`</details>`;
   }
   return h;
 }
@@ -426,12 +443,18 @@ function repaint(){
   }
   const before=document.getElementById('loadtext');
   if(before)stashedRestoreText=before.value;
+  // Groups with a data-key keep exactly the open/closed state they had, both ways.
+  // Unkeyed groups (the Train tab) keep the older add-only behaviour, keyed by
+  // summary text, so nothing about that tab changes.
+  const keyed={};
   v.querySelectorAll('details.group').forEach(d=>{
+    if(d.dataset.key){keyed[d.dataset.key]=d.open;return;}
     const k=d.querySelector('summary').textContent;
     if(d.open)openGroups.add(k);else openGroups.delete(k);
   });
   v.innerHTML=bodyHtml();
   v.querySelectorAll('details.group').forEach(d=>{
+    if(d.dataset.key){if(d.dataset.key in keyed)d.open=keyed[d.dataset.key];return;}
     if(openGroups.has(d.querySelector('summary').textContent))d.open=true;
   });
   v.scrollTop=y;
@@ -503,6 +526,7 @@ $('view').addEventListener('click',e=>{
     const q=QUESTS.find(x=>x.id===b.dataset.quest);if(q)claimQuest(q);
     render();save();return;
   }
+  if(b.dataset.cloak){awardCloak();render();save();return;}
   if(b.dataset.skiptask){rollTask();render();save();return;}
   if(b.dataset.checkupdate){Updater.check();return;}
   if(b.dataset.doupdate){Updater.apply();return;}

@@ -85,6 +85,7 @@
      line. It is the one row allowed to wrap; the buttons share the width. */
   .row.picks{flex-wrap:wrap;gap:6px}
   .row.picks button.mini{flex:1 1 auto}
+  .group>.row{margin:6px}
   .row .grow b{display:block;font-weight:600}
   .row .grow span{font-size:12px;color:var(--dim)}
   .qty{font-variant-numeric:tabular-nums;color:var(--gold);font-size:16px;flex:0 0 auto}
@@ -201,7 +202,7 @@
 </div></div>
 
 <script>
-const APP_VERSION='6.8';   /* bumped every release; the updater reads this string */
+const APP_VERSION='6.9';   /* bumped every release; the updater reads this string */
 /* The game is split into three scripts so a change only has to replace the file
    it touches. They must run in this order. Each URL carries APP_VERSION because
    sw.js serves everything except this page cache-first: without the version in

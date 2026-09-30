@@ -65,6 +65,11 @@ quest is claimed; `have` is only checked, never consumed, which is what a diary 
 "own a Starsteel sword" needs. `made` and `cleared` are lifetime counters, so selling a
 stack or dying deep never undoes progress. `meets` reads the state it is passed, never `S`.
 
+**Quests are rewards only.** No quest gates game content. A `quests` requirement only
+locks the next quest in a chain. They are grouped into four bands for the screen —
+Novice, Adept, Veteran, Master — and finishing every one awards the Wayfarer's cloak,
+which has skill-cape stats and so works as a trophy rather than an upgrade.
+
 **`FOES` stays sorted by level.** The slayer fallback slices the top three eligible foes
 and assumes ordering.
 
@@ -144,19 +149,18 @@ pieces. It does not need the server work.
 | 6.6 | Split into `data.js`, `engine.js`, `views.js`; verified behaviour-identical to 6.5 |
 | 6.7 | Borrowed names replaced — Herbalism, Enchanting, The Exchange, Cairn wraith, breastplate, kite shield |
 | 6.8 | Requirement engine shared by quests and diary; lifetime `made` and `cleared` counters |
+| 6.9 | 30 new quests (37 total) in four bands, seven short chains, the Wayfarer's cloak |
 
 ---
 
 ## Next
 
-1. **More quests (6.9).** Rewards only — no quest gates any content. The current seven are
-   thin for what the game now holds, and every quest can use any requirement type.
-2. **Achievement diary (7.0).** Three themed diaries — Gathering, Artisan, Combat — each
+1. **Achievement diary (7.0).** Three themed diaries — Gathering, Artisan, Combat — each
    with Easy, Medium, Hard and Elite tiers of 4–6 tasks. Every tier pays a permanent perk,
    a mix of small boosts and unlocks such as extra slots, a farm patch, or a longer offline
    cap. It comes last because perks need the most balancing, and because its tasks can then
    include completing quests.
-3. **A fourth dungeon was considered and dropped.** Dungeons only drop rings, and three
+2. **A fourth dungeon was considered and dropped.** Dungeons only drop rings, and three
    already compete for one slot. Endless depth replaced it as the repeatable endgame.
 
 ## Open items
@@ -177,8 +181,5 @@ pieces. It does not need the server work.
   consumer (a single quest) against a growing supply — and a crafting-82 amulet between
   diamond and the Amulet of the Starless. Neither is combat gear above starsteel, so both
   respect the boss-endgame rule.
-- **Quest level progress is unclamped.** An over-levelled requirement reads "Mining 45/20"
-  while kills and items cap at their target. Kept through 6.8 so the screen stayed
-  byte-identical; worth clamping when the quest screen is next reworked.
 - **Copper and tin have no loot ref.** Consistent with low-tier thieving, but worth a
   decision.

@@ -58,6 +58,13 @@ it drops. This is what gives bosses a reason to exist past smithing 90.
 6.7. Ordinary words RuneScape also uses (Slayer, Fletching, grimy herbs) are fine. Only the
 `n` display strings changed — every key is as it was, so saves were unaffected.
 
+**One requirement engine.** Quests and the diary share `meets(req, state)`. A requirement
+is an object of check types — `lvl`, `kills`, `items`, `total`, `bosses`, `cleared`,
+`depth`, `quests`, `have`, `made` — and every check must pass. `items` are handed in when a
+quest is claimed; `have` is only checked, never consumed, which is what a diary task like
+"own a Starsteel sword" needs. `made` and `cleared` are lifetime counters, so selling a
+stack or dying deep never undoes progress. `meets` reads the state it is passed, never `S`.
+
 **`FOES` stays sorted by level.** The slayer fallback slices the top three eligible foes
 and assumes ordering.
 
@@ -136,15 +143,19 @@ pieces. It does not need the server work.
 | 6.5 | Offline summary reports banked and lost dungeon haul |
 | 6.6 | Split into `data.js`, `engine.js`, `views.js`; verified behaviour-identical to 6.5 |
 | 6.7 | Borrowed names replaced — Herbalism, Enchanting, The Exchange, Cairn wraith, breastplate, kite shield |
+| 6.8 | Requirement engine shared by quests and diary; lifetime `made` and `cleared` counters |
 
 ---
 
 ## Next
 
-1. **Quests and the achievement diary, together.** They share `questState()`'s requirement
-   checks, so building them in one pass avoids two requirement engines that drift apart.
-   Both want the content to exist first, which it now largely does.
-2. **More quests** — the current seven are thin for the amount of content behind them.
+1. **More quests (6.9).** Rewards only — no quest gates any content. The current seven are
+   thin for what the game now holds, and every quest can use any requirement type.
+2. **Achievement diary (7.0).** Three themed diaries — Gathering, Artisan, Combat — each
+   with Easy, Medium, Hard and Elite tiers of 4–6 tasks. Every tier pays a permanent perk,
+   a mix of small boosts and unlocks such as extra slots, a farm patch, or a longer offline
+   cap. It comes last because perks need the most balancing, and because its tasks can then
+   include completing quests.
 3. **A fourth dungeon was considered and dropped.** Dungeons only drop rings, and three
    already compete for one slot. Endless depth replaced it as the repeatable endgame.
 
@@ -166,5 +177,8 @@ pieces. It does not need the server work.
   consumer (a single quest) against a growing supply — and a crafting-82 amulet between
   diamond and the Amulet of the Starless. Neither is combat gear above starsteel, so both
   respect the boss-endgame rule.
+- **Quest level progress is unclamped.** An over-levelled requirement reads "Mining 45/20"
+  while kills and items cap at their target. Kept through 6.8 so the screen stayed
+  byte-identical; worth clamping when the quest screen is next reworked.
 - **Copper and tin have no loot ref.** Consistent with low-tier thieving, but worth a
   decision.

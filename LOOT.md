@@ -1,6 +1,6 @@
 # Hollowmere loot reference
 
-Generated from `index.html` at version **6.5**. Do not hand-edit — regenerate with `node loot-sheet.js index.html > LOOT.md`.
+Generated from `index.html` at version **6.6**. Do not hand-edit — regenerate with `node loot-sheet.js index.html > LOOT.md`.
 
 ## How a drop is decided
 

@@ -19,7 +19,14 @@ Running document. Updated as decisions are made, not as work is finished.
 ## Conventions
 
 - Ship in **stages**, each one small enough to test on its own. No big-bang drops.
-- Every stage bumps `APP_VERSION` so the in-app updater sees it.
+- Every stage bumps `APP_VERSION` in `index.html`. It is both what the updater compares
+  and what cache-busts the scripts — `sw.js` serves them cache-first, so a release without a
+  bump never reaches a phone that already has them.
+- Code lives in three scripts, loaded in order by `index.html`: `data.js` (content tables),
+  `engine.js` (logic, saves, updater), `views.js` (render, input, loop). They share one
+  global scope, so a top-level `const` in one is visible to the others — but load-time code
+  must only reference files that loaded before it. A function declared in a later file is
+  not hoisted into an earlier one.
 - `LOOT.md` is generated, never hand-edited — run `node loot-sheet.js index.html > LOOT.md`
   after any change to drops, tables, monsters or gear.
 
@@ -122,6 +129,7 @@ pieces. It does not need the server work.
 | 6.3 | Endless dungeons; fixed-floor curve rebuilt, Hollow Spire now clearable at its requirement |
 | 6.4 | Delve exits unified — switching activity no longer dodges the risk, retreat keeps the haul |
 | 6.5 | Offline summary reports banked and lost dungeon haul |
+| 6.6 | Split into `data.js`, `engine.js`, `views.js`; verified behaviour-identical to 6.5 |
 
 ---
 

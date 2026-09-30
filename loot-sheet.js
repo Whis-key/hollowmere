@@ -1,11 +1,16 @@
-/* Regenerates LOOT.md from index.html.
+/* Regenerates LOOT.md from index.html and the scripts it loads.
    Reads the real data blocks out of the game and computes the numbers, so the
    sheet cannot drift from the code. Run: node loot-sheet.js index.html > LOOT.md */
-const fs = require('fs');
-const src = fs.readFileSync(process.argv[2] || 'index.html', 'utf8');
-const js = src.match(/<script[^>]*>([\s\S]*?)<\/script>/g)
-  .map(b => b.replace(/<\/?script[^>]*>/g, ''))
-  .sort((a, b) => b.length - a.length)[0];
+const fs = require('fs'), path = require('path');
+const file = process.argv[2] || 'index.html';
+const src = fs.readFileSync(file, 'utf8');
+// The game is split across scripts that index.html loads by name. Read the
+// inline script (it holds APP_VERSION and the load list), then every file it
+// names, from the same directory — so the sheet follows the code wherever a
+// block happens to live.
+const inline = [...src.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m => m[1]).join('\n');
+const list = ((inline.match(/\[((?:\s*'[\w.-]+\.js'\s*,?)+)\]/) || [, ''])[1].match(/[\w.-]+\.js/g)) || [];
+const js = inline + '\n' + list.map(f => fs.readFileSync(path.join(path.dirname(path.resolve(file)), f), 'utf8')).join('\n');
 
 function block(re) { const m = js.match(re); if (!m) throw new Error('missing block: ' + re); return m[0]; }
 const parts = [

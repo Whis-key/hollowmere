@@ -296,7 +296,7 @@ function viewShop(){
       <span>${lbl} · ${next?`next: ${next.n}, ${Math.round((1-next.mul)*100)}% faster`:'fully upgraded'}</span></div>
       ${next?`<button class="mini buy" data-tool="${t}" ${S.gp<next.cost?'disabled':''}>${fmt(next.cost)} gp</button>`:''}</div>`;
   }
-  h+=`<h2>Grand Exchange &middot; ${(S.offers||[]).length}/${GE_SLOTS} slots</h2>`;
+  h+=`<h2>The Exchange &middot; ${(S.offers||[]).length}/${GE_SLOTS} slots</h2>`;
   if(!(S.offers||[]).length)h+=`<div class="empty">No offers. List items from the Bank tab, or buy materials below.</div>`;
   for(let i=0;i<(S.offers||[]).length;i++){
     const o=S.offers[i],mkt=marketPrice(o.id),pct=(o.filled/o.qty)*100;

@@ -91,7 +91,7 @@ function fresh(){
     kills:{},quests:{},task:null,capes:{},log:[],
     sess:{kills:0,gp:0,dealt:0,taken:0,eaten:0,deaths:0,swings:0,hits:0},
     farm:[{crop:null,ms:0},{crop:null,ms:0},{crop:null,ms:0}],patches:3,
-    buffs:{},bankTier:0,bossKills:{},delve:null,deepest:{},
+    buffs:{},bankTier:0,bossKills:{},delve:null,deepest:{},made:{},cleared:{},
     house:{altar:0,workshop:0,garden:0,kitchen:0,storeroom:0,trophy:0},
     market:{},offers:[],geMs:0,pets:{},started:Date.now(),played:0,last:Date.now()};
 }
@@ -373,7 +373,7 @@ function tick(dt){
       return;
     }
     if(a.in)for(const k in a.in)take(k,a.in[k]);
-    if(a.out)for(const k in a.out){add(k,a.out[k]);noteItem(k,a.out[k]);}
+    if(a.out)for(const k in a.out){countMade(k,add(k,a.out[k]));noteItem(k,a.out[k]);}
     if(a.gp)gainGp(a.gp[0]+Math.floor(Math.random()*(a.gp[1]-a.gp[0]+1)));
     for(const d of rollLoot(a.loot)){add(d.id,d.qty);noteItem(d.id,d.qty);
       if(!gains)toast(`Found ${d.qty}× ${item(d.id).n}`);}
@@ -454,7 +454,7 @@ function fightTick(dt,foe){
           // catch-up must not keep making it for you — it would push until
           // something killed you and the haul would go with it.
           if(gains&&deep>=0){
-            if(deep===0){grantXp('slayer',d.bonusXp);gainGp(d.bonusGp);
+            if(deep===0){S.cleared[d.id]=(S.cleared[d.id]||0)+1;grantXp('slayer',d.bonusXp);gainGp(d.bonusGp);
               for(const u of rollLoot({id:d.ring,c:d.ringC})){add(u.id,u.qty);noteItem(u.id,u.qty);
                 gains.uniques=(gains.uniques||0)+1;}
               gains.delves=(gains.delves||0)+1;}
@@ -463,6 +463,7 @@ function fightTick(dt,foe){
             return;
           }
           if(deep===0){
+            S.cleared[d.id]=(S.cleared[d.id]||0)+1;
             // The fixed clear pays out exactly as it always has. The run no
             // longer ends here — you choose whether to push on.
             grantXp('slayer',d.bonusXp);
@@ -599,18 +600,57 @@ function finishTask(){
   rollTask();
 }
 
+/* ---- Requirements ---- */
+/* One requirement engine, shared by quests and (from 7.0) the achievement diary.
+   A requirement is an object of check types, e.g. {lvl:{mining:20},items:{iron_ore:30}},
+   and every check listed must pass. Each type says how to read its current value
+   and what to call itself, so a single definition drives both whether it is met
+   and the progress text on screen.
+   meets() and reqParts() read the state they are handed rather than S, per the
+   PVP-foundation rule: a requirement should be checkable against any player.
+   Types are checked and listed in the order below. The first three are the
+   originals and must stay first and in this order — the quest screen shows them
+   that way. lvl is deliberately unclamped ("Mining 45/20"), matching how the
+   screen has always shown levels; kills and items cap at the target. */
+const REQ_TYPES={
+  lvl:    {cur:(st,k)=>lvlFor((st.xp||{})[k]||0),       name:k=>label(k),  clamp:false},
+  kills:  {cur:(st,k)=>(st.kills||{})[k]||0,             name:k=>(allFoes().find(f=>f.id===k)||{n:k}).n},
+  items:  {cur:(st,k)=>(st.bank||{})[k]||0,              name:k=>item(k).n, handIn:true},   // consumed on claim
+  total:  {cur:st=>ALL_SKILLS.reduce((n,k)=>n+lvlFor((st.xp||{})[k]||0),0), name:()=>'Total level', single:true},
+  bosses: {cur:(st,k)=>(st.bossKills||{})[k]||0,         name:k=>(BOSSES.find(b=>b.id===k)||{n:k}).n},
+  cleared:{cur:(st,k)=>(st.cleared||{})[k]||0,           name:k=>(DUNGEONS.find(d=>d.id===k)||{n:k}).n+' clears'},
+  depth:  {cur:(st,k)=>(st.deepest||{})[k]||0,           name:k=>(DUNGEONS.find(d=>d.id===k)||{n:k}).n+' depth'},
+  quests: {cur:(st,k)=>(st.quests||{})[k]?1:0,           name:k=>(QUESTS.find(q=>q.id===k)||{n:k}).n},
+  have:   {cur:(st,k)=>(st.bank||{})[k]||0,              name:k=>item(k).n},                // held, never consumed
+  made:   {cur:(st,k)=>(st.made||{})[k]||0,              name:k=>item(k).n+' made'},
+};
+function reqEntries(req){
+  const out=[];if(!req)return out;
+  for(const t in REQ_TYPES){
+    if(req[t]===undefined)continue;
+    const T=REQ_TYPES[t];
+    if(T.single)out.push({T,k:null,need:req[t]});
+    else for(const k in req[t])out.push({T,k,need:req[t][k]});
+  }
+  return out;
+}
+function meets(req,st){return reqEntries(req).every(e=>e.T.cur(st,e.k)>=e.need);}
+function reqParts(req,st){
+  return reqEntries(req).map(e=>{const c=e.T.cur(st,e.k);
+    return `${e.T.name(e.k)} ${e.T.clamp===false?c:Math.min(c,e.need)}/${e.need}`;});
+}
+// Claiming is a local action on the player's own save, so this one does use S.
+function handIn(req){for(const e of reqEntries(req))if(e.T.handIn)take(e.k,e.need);}
+function countMade(id,n){if(n>0){S.made=S.made||{};S.made[id]=(S.made[id]||0)+n;}}
+
 /* ---- Quests ---- */
 function questState(q){
   if(S.quests[q.id])return'done';
-  const n=q.need;
-  if(n.lvl)for(const k in n.lvl)if(lvl(k)<n.lvl[k])return'locked';
-  if(n.kills)for(const k in n.kills)if((S.kills[k]||0)<n.kills[k])return'locked';
-  if(n.items)for(const k in n.items)if(have(k)<n.items[k])return'locked';
-  return'ready';
+  return meets(q.need,S)?'ready':'locked';
 }
 function claimQuest(q){
   if(questState(q)!=='ready')return;
-  if(q.need.items)for(const k in q.need.items)take(k,q.need.items[k]);
+  handIn(q.need);
   if(q.reward.xp)for(const k in q.reward.xp)grantXp(k,q.reward.xp[k]);
   if(q.reward.items)for(const k in q.reward.items)add(k,q.reward.items[k]);
   if(q.reward.gp)S.gp+=q.reward.gp;
@@ -699,7 +739,7 @@ function adopt(p){
   S.farm=Array.isArray(p.farm)?p.farm:f.farm;
   S.offers=adoptOffers(p.offers);
   S.market=p.market||{};S.pets=p.pets||{};
-  S.buffs=p.buffs||{};S.bossKills=p.bossKills||{};S.delve=p.delve||null;S.deepest=p.deepest||{};
+  S.buffs=p.buffs||{};S.bossKills=p.bossKills||{};S.delve=p.delve||null;S.deepest=p.deepest||{};S.made=p.made||{};S.cleared=p.cleared||{};
   S.patches=p.patches||3;S.bankTier=p.bankTier||0;
   S.geMs=p.geMs||0;S.played=p.played||0;S.started=p.started||Date.now();
   while(S.farm.length<totalPatches())S.farm.push({crop:null,ms:0});

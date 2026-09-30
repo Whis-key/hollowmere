@@ -196,11 +196,7 @@ function viewQuests(){
   let h=`<h2>Quests</h2>`;
   for(const q of QUESTS){
     const st=questState(q);
-    const parts=[];
-    if(q.need.lvl)for(const k in q.need.lvl)parts.push(`${label(k)} ${lvl(k)}/${q.need.lvl[k]}`);
-    if(q.need.kills)for(const k in q.need.kills){const f=FOES.find(x=>x.id===k);
-      parts.push(`${f.n} ${Math.min(S.kills[k]||0,q.need.kills[k])}/${q.need.kills[k]}`);}
-    if(q.need.items)for(const k in q.need.items)parts.push(`${item(k).n} ${Math.min(have(k),q.need.items[k])}/${q.need.items[k]}`);
+    const parts=reqParts(q.need,S);
     const rw=[];
     if(q.reward.xp)for(const k in q.reward.xp)rw.push(`${fmt(q.reward.xp[k])} ${label(k).toLowerCase()} xp`);
     if(q.reward.items)for(const k in q.reward.items)rw.push(item(k).n);
@@ -621,7 +617,7 @@ $('view').addEventListener('click',e=>{
     if(!pt.crop||pt.ms>0)return;
     const c=CROPS.find(x=>x.id===pt.crop);
     const n=c.yield[0]+Math.floor(Math.random()*(c.yield[1]-c.yield[0]+1));
-    const got=add(c.out,n);grantXp('farming',c.harv);
+    const got=add(c.out,n);countMade(c.out,got);grantXp('farming',c.harv);
     rollPet('farming',c.ms/4);   // scaled to grow time so slow crops aren't punished
     S.farm[i]={crop:null,ms:0};
     toast(got?`Harvested ${got}× ${item(c.out).n}`:'Bank full — harvest lost');

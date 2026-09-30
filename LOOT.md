@@ -1,6 +1,6 @@
 # Hollowmere loot reference
 
-Generated from `index.html` at version **6.6**. Do not hand-edit — regenerate with `node loot-sheet.js index.html > LOOT.md`.
+Generated from `index.html` at version **6.7**. Do not hand-edit — regenerate with `node loot-sheet.js index.html > LOOT.md`.
 
 ## How a drop is decided
 
@@ -113,7 +113,7 @@ Average value per roll: **749 gp** (**899 gp** with ring).
 | Bog ghast (lvl 39) | Herb table (`herb_mid`) | 8.00% | 8.00% | 1 in 13 | 9 |
 | Cave troll (lvl 48) | Herb table (`herb_mid`) | 10.50% | 10.50% | 1 in 10 | 11 |
 | Ember shade (lvl 60) | Herb table (`herb_high`) | 9.00% | 8.94% | 1 in 11 | 25 |
-| Barrow wraith (lvl 70) | Herb table (`herb_high`) | 10.50% | 10.43% | 1 in 10 | 29 |
+| Cairn wraith (lvl 70) | Herb table (`herb_high`) | 10.50% | 10.43% | 1 in 10 | 29 |
 | Void revenant (lvl 82) | Herb table (`herb_high`) | 11.00% | 10.92% | 1 in 9 | 30 |
 | Starless wyrm (lvl 92) | Herb table (`herb_high`) | 12.00% | 11.92% | 1 in 8 | 33 |
 | Starless wyrm (lvl 92) | Rich gem table (`gem_rich`) | 3.00% | 2.50% | 1 in 40 | 22 |
@@ -123,7 +123,7 @@ Average value per roll: **749 gp** (**899 gp** with ring).
 | source | table | access `c` | real chance | odds | avg gp |
 |---|---|---|---|---|---|
 | The Sunken Warden (lvl 55) | Warden's blade | 28.00% | 28.00% | 1 in 4 | 5040 |
-| Molten Tyrant (lvl 78) | Tyrant platebody | 22.00% | 22.00% | 1 in 5 | 6600 |
+| Molten Tyrant (lvl 78) | Tyrant breastplate | 22.00% | 22.00% | 1 in 5 | 6600 |
 | The Hollow King (lvl 99) | Crown of Hollowmere | 16.00% | 16.00% | 1 in 6 | 19200 |
 | The Starless Progenitor (lvl 118) | Wyrmscale aegis | 15.00% | 15.00% | 1 in 7 | 6000 |
 | The Starless Progenitor (lvl 118) | Amulet of the Starless | 10.00% | 10.00% | 1 in 10 | 5500 |
@@ -186,12 +186,12 @@ Base action times, before any tool speed bonus. Monster and boss rates depend on
 | Fishing | — | Net minnows, Bait trout, Cage perch, Harpoon sturgeon, Harpoon shark |
 | Firemaking | — | Burn pine, Burn oak, Burn willow, Burn maple, Burn yew, Burn elder |
 | Cooking | — | Cook minnow, Cook trout, Cook perch, Cook sturgeon, Cook shark |
-| Smithing | — | Smelt bronze, Smelt iron, Smelt steel, Smelt cobalt, Smelt adamant, Smelt starsteel, Bronze sword, Iron sword, Steel sword, Cobalt sword, Adamant sword, Starsteel sword, Bronze kiteshield, Iron kiteshield, Steel kiteshield, Cobalt kiteshield, Adamant kiteshield, Starsteel kiteshield, Bronze platebody, Iron platebody, Steel platebody, Cobalt platebody, Adamant platebody, Starsteel platebody |
+| Smithing | — | Smelt bronze, Smelt iron, Smelt steel, Smelt cobalt, Smelt adamant, Smelt starsteel, Bronze sword, Iron sword, Steel sword, Cobalt sword, Adamant sword, Starsteel sword, Bronze kite shield, Iron kite shield, Steel kite shield, Cobalt kite shield, Adamant kite shield, Starsteel kite shield, Bronze breastplate, Iron breastplate, Steel breastplate, Cobalt breastplate, Adamant breastplate, Starsteel breastplate |
 | Thieving | 3 | Fruit stall, Silk stall |
 | Crafting | — | Tan wolf pelt, Leather coif, Cure hard leather, Hard leather coif, Studded coif, Cut sapphire, Cut emerald, Cut ruby, Cut diamond, Sapphire amulet, Emerald amulet, Ruby amulet, Diamond amulet |
 | Fletching | — | Oak shortbow, Willow shortbow, Maple shortbow, Yew longbow, Elder longbow, Bronze arrows, Iron arrows, Steel arrows, Cobalt arrows, Adamant arrows, Starsteel arrows, Ember staff, Frost staff, Storm staff, Void staff |
-| Runecrafting | — | Ember runes ×10, Frost runes ×10, Storm runes ×10, Void runes ×10 |
-| Herblore | — | Clean bitterleaf, Clean marshroot, Clean emberwort, Clean sunthistle, Clean frostvein, Clean starbloom, Attack potion, Strength potion, Defence potion, Combat potion, Super potion |
+| Enchanting | — | Ember runes ×10, Frost runes ×10, Storm runes ×10, Void runes ×10 |
+| Herbalism | — | Clean bitterleaf, Clean marshroot, Clean emberwort, Clean sunthistle, Clean frostvein, Clean starbloom, Attack potion, Strength potion, Defence potion, Combat potion, Super potion |
 | Prayer | — | Bury bones, Bury big bones |
 
 Anything in the right-hand column can still produce items through the random-event path above.
@@ -207,10 +207,10 @@ Anything in the right-hand column can still produce items through the random-eve
 | Bog ghast | 39 | melee | 80 | 13 | 2.8s | 230 | 80–200 | 2× Bones, 2× Newt eye | Herb table (`herb_mid`) |
 | Cave troll | 48 | magic | 110 | 16 | 3.2s | 320 | 120–300 | 1× Big bones, 1× Troll fat | Herb table (`herb_mid`) |
 | Ember shade | 60 | magic | 150 | 20 | 2.6s | 470 | 200–480 | 1× Big bones, 2× Goblin ash | Herb table (`herb_high`) |
-| Barrow wraith | 70 | ranged | 190 | 24 | 2.7s | 640 | 280–700 | 1× Void shard, 1× Big bones, 1× Wraith dust | Herb table (`herb_high`) |
+| Cairn wraith | 70 | ranged | 190 | 24 | 2.7s | 640 | 280–700 | 1× Void shard, 1× Big bones, 1× Wraith dust | Herb table (`herb_high`) |
 | Void revenant | 82 | melee | 240 | 28 | 2.8s | 860 | 420–980 | 2× Void shard, 2× Big bones | Herb table (`herb_high`) |
 | Starless wyrm | 92 | magic | 290 | 31 | 2.7s | 1090 | 560–1250 | 3× Void shard, 3× Big bones, 2× Wraith dust | Herb table (`herb_high`), Rich gem table (`gem_rich`) |
 | The Sunken Warden | 55 | magic | 420 | 22 | 2.6s | 1400 | 900–2200 | 2× Big bones, 1× Wraith dust | Warden's blade |
-| Molten Tyrant | 78 | ranged | 820 | 32 | 2.4s | 3200 | 2500–6000 | 3× Big bones, 2× Troll fat | Tyrant platebody |
+| Molten Tyrant | 78 | ranged | 820 | 32 | 2.4s | 3200 | 2500–6000 | 3× Big bones, 2× Troll fat | Tyrant breastplate |
 | The Hollow King | 99 | melee | 1600 | 44 | 2.2s | 7500 | 7000–16000 | 2× Void shard, 3× Wraith dust | Crown of Hollowmere |
 | The Starless Progenitor | 118 | magic | 2800 | 58 | 2.1s | 15000 | 14000–32000 | 5× Big bones, 5× Void shard, 4× Wraith dust | Rich gem table (`gem_rich`), Wyrmscale aegis, Amulet of the Starless |

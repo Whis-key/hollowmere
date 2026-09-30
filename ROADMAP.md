@@ -44,7 +44,7 @@ that effect is only expressible if the misses are things that can be taken off t
 
 **Boss gear beats craftable gear of the same tier.** A drop gated at combat R must beat
 what you could make around R. It does *not* have to beat the top craftable tier — the
-Warden's blade and Tyrant platebody are a power spike at their own tier that starsteel
+Warden's blade and Tyrant breastplate are a power spike at their own tier that starsteel
 later overtakes, and that is deliberate. Raising them above starsteel would retire the
 smithing ladder.
 
@@ -52,6 +52,11 @@ smithing ladder.
 it drops. This is what gives bosses a reason to exist past smithing 90.
 
 **Value should track power within a slot.** Still only partly applied — see open items.
+
+**No borrowed names.** Mechanics can follow RuneScape; names cannot. Coined terms
+(Herblore, Runecrafting, Grand Exchange, Barrows, platebody, kiteshield) were replaced in
+6.7. Ordinary words RuneScape also uses (Slayer, Fletching, grimy herbs) are fine. Only the
+`n` display strings changed — every key is as it was, so saves were unaffected.
 
 **`FOES` stays sorted by level.** The slayer fallback slices the top three eligible foes
 and assumes ordering.
@@ -130,24 +135,22 @@ pieces. It does not need the server work.
 | 6.4 | Delve exits unified — switching activity no longer dodges the risk, retreat keeps the haul |
 | 6.5 | Offline summary reports banked and lost dungeon haul |
 | 6.6 | Split into `data.js`, `engine.js`, `views.js`; verified behaviour-identical to 6.5 |
+| 6.7 | Borrowed names replaced — Herbalism, Enchanting, The Exchange, Cairn wraith, breastplate, kite shield |
 
 ---
 
 ## Next
 
-1. **Rename pass for borrowed terms.** `Herblore`, `Runecrafting`, `Grand Exchange` and
-   `Barrow wraith` are coined RuneScape names rather than ordinary words. Display strings
-   only — skill keys live in saves, the `n` values do not, so nothing breaks.
-2. **Quests and the achievement diary, together.** They share `questState()`'s requirement
+1. **Quests and the achievement diary, together.** They share `questState()`'s requirement
    checks, so building them in one pass avoids two requirement engines that drift apart.
    Both want the content to exist first, which it now largely does.
-3. **More quests** — the current seven are thin for the amount of content behind them.
-4. **A fourth dungeon was considered and dropped.** Dungeons only drop rings, and three
+2. **More quests** — the current seven are thin for the amount of content behind them.
+3. **A fourth dungeon was considered and dropped.** Dungeons only drop rings, and three
    already compete for one slot. Endless depth replaced it as the repeatable endgame.
 
 ## Open items
 
-- **Warden's blade and Tyrant platebody are still priced above the stronger starsteel
+- **Warden's blade and Tyrant breastplate are still priced above the stronger starsteel
   items** — 1.20x and 1.25x, down from 2.00x. A strict value-tracks-power price would be
   12,500 and 21,500. Left at 18,000 and 30,000 pending a decision on how much the boss
   gold faucet should be cut.

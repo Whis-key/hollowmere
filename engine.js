@@ -91,7 +91,7 @@ function fresh(){
     kills:{},quests:{},task:null,capes:{},log:[],
     sess:{kills:0,gp:0,dealt:0,taken:0,eaten:0,deaths:0,swings:0,hits:0},
     farm:[{crop:null,ms:0},{crop:null,ms:0},{crop:null,ms:0}],patches:3,
-    buffs:{},bankTier:0,bossKills:{},delve:null,deepest:{},made:{},cleared:{},
+    buffs:{},bankTier:0,bossKills:{},delve:null,deepest:{},made:{},cleared:{},diary:{},tasksDone:0,
     house:{altar:0,workshop:0,garden:0,kitchen:0,storeroom:0,trophy:0},
     market:{},offers:[],geMs:0,pets:{},started:Date.now(),played:0,last:Date.now()};
 }
@@ -175,14 +175,17 @@ function rollPet(key,dur){
 }
 function room(id){return (S.house&&S.house[id])||0;}
 function ringGold(){const r=S.equip.ring;return r&&EQ[r]&&EQ[r].gold?EQ[r].gold:0;}
-function goldMul(){return 1+room('trophy')*0.07+ringGold();}
-function gainGp(n){const g=Math.round(n*goldMul());S.gp+=g;noteGp(g);return g;}
-function totalPatches(){return Math.min(8,(S.patches||3)+room('garden'));}
+/* combat is true for gold from fighting — kills, clears, slayer tasks and a
+   banked delve haul — which is all the Combat diary's gold perk touches. */
+function goldMul(combat){return 1+room('trophy')*0.07+ringGold()+(combat?diaryPerk('combatGold')*0.05:0);}
+function gainGp(n,combat){const g=Math.round(n*goldMul(combat));S.gp+=g;noteGp(g);return g;}
+function totalPatches(){const d=diaryPerk('patch');return Math.min(8+d,(S.patches||3)+room('garden')+d);}
+function geSlots(){return GE_SLOTS+diaryPerk('offer');}
 /* Bank capacity is SLOTS — distinct item types. Stacks are unlimited, the way
    they are in RuneScape. An over-cap save (from before the switch) keeps
    everything it holds and is only blocked from taking on NEW item types, so
    nobody loses anything on the changeover. */
-function bankCap(){return BANK_TIERS[S.bankTier||0]+room('storeroom')*8;}
+function bankCap(){return BANK_TIERS[S.bankTier||0]+room('storeroom')*8+diaryPerk('bank')*8;}
 function bankUsed(){let n=0;for(const k in S.bank)if(S.bank[k]>0)n++;return n;}
 function bankFull(){return bankUsed()>=bankCap();}
 function hasSlot(id){return !!S.bank[id]||bankUsed()<bankCap();}
@@ -205,7 +208,7 @@ function vendor(id,n){
 }
 function listOffer(id,n){
   n=Math.min(n,have(id));if(n<=0)return;
-  if((S.offers||[]).length>=GE_SLOTS){toast('No free offer slots');return;}
+  if((S.offers||[]).length>=geSlots()){toast('No free offer slots');return;}
   take(id,n);unequipIfGone(id);
   S.offers.push({uid:offerUid(),kind:'sell',id,qty:n,filled:0,price:marketPrice(id)});
   toast(`Listed ${fmt(n)}× ${item(id).n}`);
@@ -235,7 +238,7 @@ function repriceOffer(o,price){
   return true;
 }
 function buyOffer(id,n){
-  if((S.offers||[]).length>=GE_SLOTS){toast('No free offer slots');return;}
+  if((S.offers||[]).length>=geSlots()){toast('No free offer slots');return;}
   // A buy offer delivers through add() whenever it fills, which could be hours
   // later. Refuse it now rather than have the gold spent and the goods dropped
   // on arrival because there was no slot waiting.
@@ -273,10 +276,12 @@ function findAct(key){
   return{skill:sk,a};
 }
 const CRAFT_SKILLS=['smithing','crafting','fletching'];
+const GATHER_SKILLS=['woodcutting','mining','fishing'];
 function actDur(sk,a){
   const t=SKILLS[sk].tool;
   let d=t?a.dur*TOOLS[t][S.tools[t]].mul:a.dur;
-  if(CRAFT_SKILLS.includes(sk))d*=(1-room('workshop')*0.07);
+  if(CRAFT_SKILLS.includes(sk))d*=(1-room('workshop')*0.07-diaryPerk('craftSpeed')*0.05);
+  if(GATHER_SKILLS.includes(sk))d*=(1-diaryPerk('gatherSpeed')*0.05);
   return Math.max(500,d);
 }
 
@@ -287,6 +292,7 @@ let gains=null;
 function grantXp(sk,amount){
   if(!amount)return;
   if(sk==='prayer')amount=Math.round(amount*(1+room('altar')*0.15));
+  if(sk==='slayer')amount=Math.round(amount*(1+diaryPerk('slayerXp')*0.10));
   const before=lvlFor(S.xp[sk]||0);
   S.xp[sk]=Math.min(XP[98],(S.xp[sk]||0)+amount);
   const after=lvlFor(S.xp[sk]);
@@ -372,10 +378,12 @@ function tick(dt){
       if(gains)gains.fails=(gains.fails||0)+1;else pushLog('Caught — stunned');
       return;
     }
-    if(a.in)for(const k in a.in)take(k,a.in[k]);
+    if(a.in&&!(CRAFT_SKILLS.includes(skill)&&diaryPerk('saveMats')&&Math.random()<0.10))
+      for(const k in a.in)take(k,a.in[k]);
     if(a.out)for(const k in a.out){countMade(k,add(k,a.out[k]));noteItem(k,a.out[k]);}
     if(a.gp)gainGp(a.gp[0]+Math.floor(Math.random()*(a.gp[1]-a.gp[0]+1)));
-    for(const d of rollLoot(a.loot)){add(d.id,d.qty);noteItem(d.id,d.qty);
+    const gemMul=(skill==='mining'||skill==='thieving')&&diaryPerk('gems')?1.25:1;
+    for(const d of rollLoot(gemMul>1?scaleRefs(a.loot,gemMul):a.loot)){add(d.id,d.qty);noteItem(d.id,d.qty);
       if(!gains)toast(`Found ${d.qty}× ${item(d.id).n}`);}
     grantXp(skill,a.xp);
     rollPet(skill,dur);
@@ -436,7 +444,7 @@ function fightTick(dt,foe){
       if(S.foeHp<=0){
         grantXp('defence',foe.xp);
         S.kills[foe.id]=(S.kills[foe.id]||0)+1;S.sess.kills++;
-        const gp=gainGp(foe.gp[0]+Math.floor(Math.random()*(foe.gp[1]-foe.gp[0]+1)));
+        const gp=gainGp(foe.gp[0]+Math.floor(Math.random()*(foe.gp[1]-foe.gp[0]+1)),true);
         S.sess.gp+=gp;
         const drops=[];
         for(const k in foe.drop){add(k,foe.drop[k]);noteItem(k,foe.drop[k]);drops.push(`${foe.drop[k]}× ${item(k).n}`);}
@@ -454,7 +462,7 @@ function fightTick(dt,foe){
           // catch-up must not keep making it for you — it would push until
           // something killed you and the haul would go with it.
           if(gains&&deep>=0){
-            if(deep===0){S.cleared[d.id]=(S.cleared[d.id]||0)+1;grantXp('slayer',d.bonusXp);gainGp(d.bonusGp);
+            if(deep===0){S.cleared[d.id]=(S.cleared[d.id]||0)+1;grantXp('slayer',d.bonusXp);gainGp(d.bonusGp,true);
               for(const u of rollLoot({id:d.ring,c:d.ringC})){add(u.id,u.qty);noteItem(u.id,u.qty);
                 gains.uniques=(gains.uniques||0)+1;}
               gains.delves=(gains.delves||0)+1;}
@@ -467,7 +475,7 @@ function fightTick(dt,foe){
             // The fixed clear pays out exactly as it always has. The run no
             // longer ends here — you choose whether to push on.
             grantXp('slayer',d.bonusXp);
-            const bg=gainGp(d.bonusGp);
+            const bg=gainGp(d.bonusGp,true);
             for(const u of rollLoot({id:d.ring,c:d.ringC})){add(u.id,u.qty);noteItem(u.id,u.qty);
               pushLog(`${item(u.id).n} drops!`,'kill');
               if(gains)gains.uniques=(gains.uniques||0)+1;else toast(`${item(u.id).n}!`);}
@@ -565,7 +573,7 @@ function autoEat(){
   const need=maxHp()-S.hp;
   const pick=foods.find(f=>I[f].heal>=need)||foods[foods.length-1];
   const before=S.hp;
-  const healed=Math.round(I[pick].heal*(1+room('kitchen')*0.25));
+  const healed=Math.round(I[pick].heal*(1+room('kitchen')*0.25+diaryPerk('food')*0.10));
   take(pick,1);S.hp=Math.min(maxHp(),S.hp+healed);S.sess.eaten++;
   pushLog(`Ate ${I[pick].n} — healed ${S.hp-before} to ${S.hp} hp (${have(pick)} left)`,'eat');
 }
@@ -588,9 +596,11 @@ function rollTask(){
 }
 function finishTask(){
   const foe=FOES.find(f=>f.id===S.task.foe);
-  const bonus=Math.round(foe.xp*S.task.need*0.9);
-  const gp=Math.round(foe.gp[1]*S.task.need*0.6);
-  grantXp('slayer',bonus);gainGp(gp);
+  const pm=1+diaryPerk('slayerTask')*0.15;
+  const bonus=Math.round(foe.xp*S.task.need*0.9*pm);
+  const gp=Math.round(foe.gp[1]*S.task.need*0.6*pm);
+  grantXp('slayer',bonus);gainGp(gp,true);
+  S.tasksDone=(S.tasksDone||0)+1;
   if(gains)gains.tasks=(gains.tasks||0)+1;
   else{pushLog(`Task complete — ${S.task.need}× ${foe.n} for ${fmt(bonus)} slayer xp and ${fmt(gp)} gp`,'task');
     toast(`Task done — ${fmt(bonus)} slayer xp`);}
@@ -623,6 +633,9 @@ const REQ_TYPES={
            fmt:(nm,c)=>c?'✓ '+nm:'After '+nm},
   have:   {cur:(st,k)=>(st.bank||{})[k]||0,              name:k=>'Own '+item(k).n},         // held, never consumed
   made:   {cur:(st,k)=>(st.made||{})[k]||0,              name:k=>item(k).n+' made'},
+  tool:   {cur:(st,k)=>(st.tools||{})[k]||0,             name:k=>k,                         // tier index, owned not held
+           fmt:(k,c,need)=>(c>=need?'✓ ':'')+'Own '+TOOLS[k][need].n},
+  tasks:  {cur:st=>st.tasksDone||0,                      name:()=>'Slayer tasks', single:true},
 };
 function reqEntries(req){
   const out=[];if(!req)return out;
@@ -669,13 +682,43 @@ function awardCloak(){
 }
 function questsReady(){return QUESTS.some(q=>questState(q)==='ready');}
 
+/* ---- Achievement diary ---- */
+const diaryKey=(d,i)=>d.id+i;
+// 1 if the tier carrying this perk is claimed. Every perk sits on exactly one tier.
+function diaryPerk(p){
+  if(!S.diary)return 0;
+  for(const d of DIARY)for(let i=0;i<d.tiers.length;i++)
+    if(d.tiers[i].perk===p)return S.diary[diaryKey(d,i)]?1:0;
+  return 0;
+}
+function tierState(d,i){
+  if(S.diary[diaryKey(d,i)])return'done';
+  return d.tiers[i].tasks.every(t=>meets(t,S))?'ready':'locked';
+}
+function claimTier(d,i){
+  if(tierState(d,i)!=='ready')return;
+  S.diary[diaryKey(d,i)]=1;
+  if(d.tiers[i].perk==='patch')while(S.farm.length<totalPatches())S.farm.push({crop:null,ms:0});
+  toast(`${d.n} ${DIARY_TIERS[i]} complete — ${d.tiers[i].desc}`);
+  awardDiaryCape();
+}
+// Same rules as the Wayfarer's cloak: no free slot means not yet, never lost.
+function awardDiaryCape(){
+  if(S.capes.diary||!DIARY.every(d=>d.tiers.every((t,i)=>S.diary[diaryKey(d,i)])))return false;
+  if(!add('diarist_cape',1)){toast("Free a bank slot to receive the Diarist's cape");return false;}
+  S.capes.diary=1;toast("Every diary complete — Diarist's cape earned");
+  return true;
+}
+function diaryReady(){return DIARY.some(d=>d.tiers.some((t,i)=>tierState(d,i)==='ready'));}
+
 /* ============================================================
    OFFLINE
    ============================================================ */
 const OFFLINE_CAP=12*3600*1000;
+function offlineCap(){return OFFLINE_CAP+diaryPerk('offline')*4*3600*1000;}
 function catchUp(){
   const now=Date.now();
-  let elapsed=Math.min(now-(S.last||now),OFFLINE_CAP);
+  let elapsed=Math.min(now-(S.last||now),offlineCap());
   S.last=now;
   if(elapsed<20000)return null;
   const ripeBefore=S.farm.filter(p=>p.crop&&p.ms<=0).length;
@@ -750,6 +793,7 @@ function adopt(p){
   S.offers=adoptOffers(p.offers);
   S.market=p.market||{};S.pets=p.pets||{};
   S.buffs=p.buffs||{};S.bossKills=p.bossKills||{};S.delve=p.delve||null;S.deepest=p.deepest||{};S.made=p.made||{};S.cleared=p.cleared||{};
+  S.diary=p.diary||{};S.tasksDone=p.tasksDone||0;
   S.patches=p.patches||3;S.bankTier=p.bankTier||0;
   S.geMs=p.geMs||0;S.played=p.played||0;S.started=p.started||Date.now();
   while(S.farm.length<totalPatches())S.farm.push({crop:null,ms:0});

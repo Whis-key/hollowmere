@@ -107,6 +107,8 @@ const EQ={
   /* For finishing every quest. Same stats as a skill cape, so effectively a trophy:
      it takes the body slot, and nobody trades a breastplate for it. */
   wayfarer_cloak:{n:"Wayfarer's cloak",v:99000,slot:'body',def:12,str:4},
+  /* For claiming every diary tier. Same trophy terms as the cloak. */
+  diarist_cape:{n:"Diarist's cape",v:99000,slot:'body',def:12,str:4},
 };
 const CAPES={};
 for(const k of ['woodcutting','mining','fishing','firemaking','cooking','smithing','thieving','crafting','prayer','slayer','attack','strength','defence','hitpoints']){
@@ -303,7 +305,7 @@ const DUNGEONS=[
 function bankDelve(why){
   if(!S.delve)return 0;
   const hg=S.delve.haulGp||0,hx=S.delve.haulXp||0;
-  if(hg)gainGp(hg);
+  if(hg)gainGp(hg,true);
   if(hx)grantXp('slayer',hx);
   if(gains){if(hg||hx)gains.haulGp=(gains.haulGp||0)+hg;}
   else if(hg||hx)pushLog(`${why} — banked ${fmt(hg)} gp and ${fmt(hx)} slayer xp`,'task');
@@ -407,6 +409,8 @@ function rollTableOnce(name,depth){
 /* Roll one ref or a list of them. Each rolls independently at its own chance;
    a hit resolves a single outcome, which may be nothing. Returns [{id,qty}]
    and banks nothing, so callers keep control of logging and awarding. */
+// A copy of refs with every access chance multiplied, for perks that raise a drop rate.
+function scaleRefs(refs,m){return [].concat(refs||[]).map(r=>r&&Object.assign({},r,{c:Math.min(1,(r.c===undefined?1:r.c)*m)}));}
 function rollLoot(refs){
   const out=[];
   for(const ref of [].concat(refs||[])){
@@ -535,5 +539,60 @@ const QUESTS=[
    need:{quests:{q7:1,q24:1},bosses:{hlk:1}},reward:{xp:{attack:150000,strength:150000,defence:150000},items:{boss_sigil:3}}},
   {id:'q37',band:'master',n:'Beneath Hollowmere',blurb:'The wyrms were fleeing something. Find it.',
    need:{quests:{q36:1},total:1500,bosses:{pro:1}},reward:{xp:{attack:250000,strength:250000,defence:250000,hitpoints:250000},gp:250000}},
+];
+
+/* ============================================================
+   ACHIEVEMENT DIARY
+   ============================================================ */
+/* Three diaries of four tiers. A tier is claimed once all its tasks pass, in
+   any order, and pays a permanent perk. Tasks use the quest requirement engine
+   but never hand anything in — only checks that read lifetime counters, levels
+   or what you own — so diary progress can never be lost.
+   A perk is named by `perk` and wired where its lever lives (see diaryPerk in
+   engine.js). Claimed tiers are stored as S.diary[diary id + tier index]. */
+const DIARY_TIERS=['Easy','Medium','Hard','Elite'];
+const DIARY=[
+  {id:'gathering',n:'Gathering',tiers:[
+    {perk:'gatherSpeed',desc:'Woodcutting, Mining and Fishing 5% faster',tasks:[
+      {lvl:{woodcutting:20}},{lvl:{mining:20}},{lvl:{fishing:20}},
+      {made:{grimy_bitterleaf:25}},{tool:{axe:1}}]},
+    {perk:'patch',desc:'+1 farm patch, and the patch cap rises to 9',tasks:[
+      {lvl:{woodcutting:45}},{made:{coal:500}},{lvl:{fishing:40}},
+      {lvl:{thieving:40}},{made:{grimy_emberwort:50}}]},
+    {perk:'gems',desc:'Gems found 25% more often while mining and thieving',tasks:[
+      {made:{yew_logs:1000}},{lvl:{mining:70}},{made:{raw_sturgeon:1000}},
+      {lvl:{thieving:75}},{made:{grimy_frostvein:50}}]},
+    {perk:'offline',desc:'Offline progress caps at 16 hours instead of 12',tasks:[
+      {lvl:{woodcutting:90,mining:90,fishing:90}},{made:{starsteel_ore:500}},{made:{raw_shark:2000}},
+      {made:{grimy_starbloom:100}},{tool:{axe:4,pick:4,rod:4}}]},
+  ]},
+  {id:'artisan',n:'Artisan',tiers:[
+    {perk:'offer',desc:'+1 Exchange offer slot',tasks:[
+      {made:{trout:100}},{made:{iron_bar:100}},{made:{iron_arrow:300}},
+      {made:{attack_potion:20}},{quests:{q1:1}}]},
+    {perk:'craftSpeed',desc:'Smithing, Crafting and Fletching 5% faster',tasks:[
+      {lvl:{smithing:50}},{made:{ruby_amulet:1}},{made:{frost_rune:1000}},
+      {made:{combat_potion:50}},{made:{emerald:25}}]},
+    {perk:'saveMats',desc:'Smithing, Crafting and Fletching keep their materials 10% of the time',tasks:[
+      {made:{cobalt_sword:1,cobalt_kite:1,cobalt_plate:1}},{made:{yew_bow:1}},{made:{storm_rune:1000}},
+      {made:{super_potion:50}},{lvl:{prayer:70}}]},
+    {perk:'bank',desc:'+8 bank slots',tasks:[
+      {made:{starsteel_sword:1,starsteel_kite:1,starsteel_plate:1}},{made:{starsteel_arrow:1000}},
+      {made:{elder_bow:1,void_staff:1}},{made:{diamond_amulet:10}},{total:1400}]},
+  ]},
+  {id:'combat',n:'Combat',tiers:[
+    {perk:'food',desc:'Food heals 10% more',tasks:[
+      {kills:{gob:50}},{kills:{ban:25}},{lvl:{attack:20,strength:20,defence:20}},
+      {tasks:3},{quests:{q2:1}}]},
+    {perk:'slayerTask',desc:'Slayer tasks pay 15% more bonus xp and gold',tasks:[
+      {cleared:{vault:5}},{kills:{trl:100}},{bosses:{wdn:1}},
+      {lvl:{ranged:50,magic:50}},{quests:{q16:1,q20:1}}]},
+    {perk:'combatGold',desc:'+5% gold from combat',tasks:[
+      {bosses:{tyr:10}},{cleared:{ember:5}},{depth:{ember:10}},
+      {kills:{wra:250}},{lvl:{slayer:70}}]},
+    {perk:'slayerXp',desc:'+10% Slayer xp',tasks:[
+      {bosses:{hlk:25}},{bosses:{pro:1}},{depth:{spire:20}},
+      {kills:{wyr:500}},{quests:{q31:1,q32:1,q33:1,q34:1,q35:1,q36:1,q37:1}}]},
+  ]},
 ];
 

@@ -270,7 +270,7 @@ function viewBank(){
   const worth=keys.reduce((n,k)=>n+item(k).v*S.bank[k],0);
   let h=`<h2>Bank &middot; ${used} / ${cap} slots &middot; worth ${fmt(worth)} gp</h2>${capbar}`;
   if(pctc>=100)h+=`<div class="empty" style="color:var(--blood)">Every slot is taken. Gathering has stopped and new item types are being lost.</div>`;
-  const geFull=(S.offers||[]).length>=GE_SLOTS;
+  const geFull=(S.offers||[]).length>=geSlots();
   for(const k of keys){
     const it=item(k),n=S.bank[k],eq=EQ[k];
     const worn=eq&&S.equip[eq.slot]===k;
@@ -309,7 +309,7 @@ function viewShop(){
       <span>${lbl} · ${next?`next: ${next.n}, ${Math.round((1-next.mul)*100)}% faster`:'fully upgraded'}</span></div>
       ${next?`<button class="mini buy" data-tool="${t}" ${S.gp<next.cost?'disabled':''}>${fmt(next.cost)} gp</button>`:''}</div>`;
   }
-  h+=`<h2>The Exchange &middot; ${(S.offers||[]).length}/${GE_SLOTS} slots</h2>`;
+  h+=`<h2>The Exchange &middot; ${(S.offers||[]).length}/${geSlots()} slots</h2>`;
   if(!(S.offers||[]).length)h+=`<div class="empty">No offers. List items from the Bank tab, or buy materials below.</div>`;
   for(let i=0;i<(S.offers||[]).length;i++){
     const o=S.offers[i],mkt=marketPrice(o.id),pct=(o.filled/o.qty)*100;
@@ -330,7 +330,7 @@ function viewShop(){
     const diff=Math.round(((mkt-base)/base)*100);
     h+=`<div class="row"><div class="grow"><b>${item(id).n}</b>
       <span>${fmt(mkt)} gp &middot; <span class="${diff<=0?'up':'down'}">${diff>0?'+':''}${diff}% vs base</span> &middot; you hold ${fmt(have(id))}</span></div>
-      <button class="mini buy${pick&&pick.id===id&&pick.mode==='order'?' on':''}" data-pick="order:${id}" ${(S.gp<mkt||(S.offers||[]).length>=GE_SLOTS)?'disabled':''}>Buy</button></div>`;
+      <button class="mini buy${pick&&pick.id===id&&pick.mode==='order'?' on':''}" data-pick="order:${id}" ${(S.gp<mkt||(S.offers||[]).length>=geSlots())?'disabled':''}>Buy</button></div>`;
     h+=pickStrip(id,'order',mkt,Math.floor(S.gp/mkt),`you can afford ${fmt(Math.floor(S.gp/mkt))}`);
   }
   h+=`<h2>Your house</h2>`;
@@ -497,7 +497,7 @@ $('view').addEventListener('click',e=>{
   if(b.dataset.pick){
     const i=b.dataset.pick.indexOf(':');
     const mode=b.dataset.pick.slice(0,i),id=b.dataset.pick.slice(i+1);
-    if(mode==='list'&&(S.offers||[]).length>=GE_SLOTS){toast('No free offer slots');return;}
+    if(mode==='list'&&(S.offers||[]).length>=geSlots()){toast('No free offer slots');return;}
     pick=(pick&&pick.id===id&&pick.mode===mode)?null:{id,mode};
     render();return;
   }

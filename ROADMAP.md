@@ -70,6 +70,18 @@ locks the next quest in a chain. They are grouped into four bands for the screen
 Novice, Adept, Veteran, Master — and finishing every one awards the Wayfarer's cloak,
 which has skill-cape stats and so works as a trophy rather than an upgrade.
 
+**The diary pays perks, never content.** Three diaries — Gathering, Artisan, Combat — of
+four tiers (Easy, Medium, Hard, Elite), five tasks each. A tier is claimable in any order
+once every task passes, and pays one permanent perk; claimed tiers live in `S.diary` as
+`<diary id><tier index>`. Tasks use `meets()` but never `items`, so nothing is handed in
+and nothing can be undone. Two check types were added for it: `tool` (tool tier owned) and
+`tasks` (lifetime slayer tasks, counted from 7.0). Perks stay small (5–10%) and each one
+plugs into the lever it changes through `diaryPerk()`, so with nothing claimed the game
+plays exactly as before. The Combat Elite perk is +10% slayer xp rather than keeping part
+of a delve haul on death, so the delve rule above stands. Claiming all twelve awards the
+Diarist's cape, on the Wayfarer's cloak terms. Old saves are not back-filled: `made`,
+`cleared` and `tasksDone` count from when they were added.
+
 **`FOES` stays sorted by level.** The slayer fallback slices the top three eligible foes
 and assumes ordering.
 
@@ -150,16 +162,14 @@ pieces. It does not need the server work.
 | 6.7 | Borrowed names replaced — Herbalism, Enchanting, The Exchange, Cairn wraith, breastplate, kite shield |
 | 6.8 | Requirement engine shared by quests and diary; lifetime `made` and `cleared` counters |
 | 6.9 | 30 new quests (37 total) in four bands, seven short chains, the Wayfarer's cloak |
+| 7.0 | Achievement diary — three diaries, twelve tiers, twelve perks, Diary tab, the Diarist's cape |
 
 ---
 
 ## Next
 
-1. **Achievement diary (7.0).** Three themed diaries — Gathering, Artisan, Combat — each
-   with Easy, Medium, Hard and Elite tiers of 4–6 tasks. Every tier pays a permanent perk,
-   a mix of small boosts and unlocks such as extra slots, a farm patch, or a longer offline
-   cap. It comes last because perks need the most balancing, and because its tasks can then
-   include completing quests.
+1. **Diary tuning.** Task targets are first-pass numbers; adjust them once real saves
+   show which tiers fall too fast or stall.
 2. **A fourth dungeon was considered and dropped.** Dungeons only drop rings, and three
    already compete for one slot. Endless depth replaced it as the repeatable endgame.
 

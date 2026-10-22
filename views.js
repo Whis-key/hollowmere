@@ -227,6 +227,43 @@ function viewQuests(){
   return h;
 }
 
+/* Diary task lines reuse the quest wording, minus what does not fit here: a
+   met task gets one tick for the whole line, and a quest reads "Finish X"
+   rather than the chain-lock "After X". */
+function diaryTaskText(task,met){
+  const t=reqParts(task,S).map(p=>p.replace(/^✓ /,'').replace(/^After /,'Finish ')).join(' &middot; ');
+  return met?'✓ '+t:t;
+}
+function diaryTierRow(d,i){
+  const t=d.tiers[i],st=tierState(d,i);
+  const met=t.tasks.map(x=>meets(x,S));
+  const n=met.filter(Boolean).length;
+  return `<div class="row ${st}"><div class="grow"><b>${DIARY_TIERS[i]} &middot; ${st==='done'?'Complete':n+'/'+t.tasks.length}</b>
+      <span>Perk: ${t.desc}${st==='done'?'':'<br>'+t.tasks.map((x,j)=>diaryTaskText(x,met[j])).join('<br>')}</span></div>
+      ${st==='done'?'':`<button class="mini buy" data-tier="${d.id}:${i}" ${st==='ready'?'':'disabled'}>${st==='ready'?'Claim':'…'}</button>`}
+    </div>`;
+}
+function viewDiary(){
+  const all=DIARY.reduce((n,d)=>n+d.tiers.length,0);
+  const done=Object.keys(S.diary||{}).length;
+  let h=`<h2>Achievement diary &middot; ${done} / ${all}</h2>`;
+  if(S.capes.diary)h+=`<div class="row done"><div class="grow"><b>Diarist's cape</b><span>Every diary complete</span></div></div>`;
+  else if(done===all)h+=`<div class="row ready"><div class="grow"><b>Diarist's cape</b><span>Every diary complete — free a bank slot to take it</span></div><button class="mini buy" data-dcape="1">Claim</button></div>`;
+  else h+=`<div class="empty">Tiers can be finished in any order. Complete all ${all} to earn the Diarist's cape.</div>`;
+  // Same opening rule as the quest bands: a diary with a tier ready opens, and
+  // so does the first with work left; after that the player's choice sticks.
+  let firstOpen=false;
+  for(const d of DIARY){
+    const sts=d.tiers.map((t,i)=>tierState(d,i));
+    const dn=sts.filter(x=>x==='done').length,r=sts.filter(x=>x==='ready').length;
+    let open=r>0;if(!firstOpen&&dn<d.tiers.length){open=true;firstOpen=true;}
+    h+=`<details class="group" data-key="diary-${d.id}"${open?' open':''}><summary>${d.n}<span class="lv num">${dn}/${d.tiers.length}${r?` &middot; ${r} ready`:''}</span></summary>`;
+    for(let i=0;i<d.tiers.length;i++)h+=diaryTierRow(d,i);
+    h+=`</details>`;
+  }
+  return h;
+}
+
 /* One quantity strip, shared by the bank, the exchange and the shop. `max` is
    whatever bounds the choice: stock held when selling, gold affordable when
    buying. Buttons rather than a number input, to match the rest of the app. */
@@ -426,7 +463,7 @@ function viewShop(){
 
 function bodyHtml(){
   return tab==='train'?viewTrain():tab==='fight'?viewFight():tab==='quests'?viewQuests()
-    :tab==='bank'?viewBank():viewShop();
+    :tab==='diary'?viewDiary():tab==='bank'?viewBank():viewShop();
 }
 let stashedRestoreText='';
 function repaint(){
@@ -463,6 +500,8 @@ function repaint(){
   $('purse').innerHTML=`${fmt(S.gp)} <span>gp</span>`;
   const qb=document.querySelector('nav button[data-tab="quests"]');
   qb.innerHTML='Quests'+(questsReady()?'<span class="pip"></span>':'');
+  const db=document.querySelector('nav button[data-tab="diary"]');
+  db.innerHTML='Diary'+(diaryReady()?'<span class="pip"></span>':'');
 }
 function render(){
   renderDoing();repaint();
@@ -522,6 +561,12 @@ $('view').addEventListener('click',e=>{
     if(!next||S.gp<next.cost)return;
     S.gp-=next.cost;S.tools[t]++;toast(`Bought ${next.n}`);render();save();return;
   }
+  if(b.dataset.tier){
+    const [id,i]=b.dataset.tier.split(':');const d=DIARY.find(x=>x.id===id);
+    if(d)claimTier(d,+i);
+    render();save();return;
+  }
+  if(b.dataset.dcape){awardDiaryCape();render();save();return;}
   if(b.dataset.quest){
     const q=QUESTS.find(x=>x.id===b.dataset.quest);if(q)claimQuest(q);
     render();save();return;
